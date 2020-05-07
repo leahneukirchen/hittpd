@@ -1,0 +1,31 @@
+Features of hittpd:
+
+- Asynchronous poll(2) loop
+- Uses the robust http-parser of node.js
+- Directory Indexes
+- HTTP 1.0 and HTTP 1.1 support
+- Ranges (basic variants only)
+- If-Modified-Since
+- Keep-Alive
+- IPv6
+- sendfile(2) on Linux
+- Virtual Hosts
+- ~user directories
+- NCSA compatible log format
+- Connection timeouts
+- Portable code
+- MIT licensed
+- less than 3kloc total
+
+Anti features:
+
+- No daemonization, no pidfiles, use a service supervisor
+- No config files
+- No CGI support
+- No SSL, use behind hitch or the like
+
+Other nifty small webservers to look at:
+
+- thttpd
+- bozohttpd
+- darkhttpd
