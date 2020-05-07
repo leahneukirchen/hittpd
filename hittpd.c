@@ -288,6 +288,8 @@ send_dir_redirect(http_parser *p)
 
 	// XXX include redirect link?
 
+	data->last = data->first = 0;
+
 	write(data->fd, buf, len);
 	accesslog(p, 301);
 }
