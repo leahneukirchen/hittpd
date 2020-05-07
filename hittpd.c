@@ -344,6 +344,7 @@ print_urlencoded(FILE *stream, char *s)
 		case '=':
 		case '&':
 		case '"':
+		case '#':
 		case '<':
 		case '>':
 		case '%':
