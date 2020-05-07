@@ -53,7 +53,7 @@
 #include "http_parser.h"
 
 struct conn_data {
-	enum { NONE, HOST, IMS, RANGE, OTHER, BAD_REQUEST, SENDING } state;
+	enum { NONE, HOST, IMS, RANGE, OTHER, SENDING } state;
 	char *host;
 	char *ims;
 	char *path;
@@ -100,9 +100,6 @@ static int
 on_header_field(http_parser *p, const char *s, size_t l)
 {
 	struct conn_data *data = p->data;
-
-	if (data->state == BAD_REQUEST)
-		return 0;
 
 	if (l == 4 && strncasecmp(s, "host", l) == 0)
 		data->state = HOST;
@@ -472,14 +469,14 @@ on_message_complete(http_parser *p) {
 			char d = (c1 << 4) | c2;
 
 			if (d == 0 || d == '/') {
-				data->state = BAD_REQUEST;
+				send_error(p, 400, "Bad Request");
 				return 0;
 			}
 
                         *t++ = d;
 			i += 2;
 		} else if (s[i] == 0) {
-			data->state = BAD_REQUEST;
+			send_error(p, 400, "Bad Request");
 			return 0;
 		} else {
 			*t++ = s[i];
