@@ -726,10 +726,12 @@ finish_response(int i)
 
 	client[i].events = POLLRDNORM;
 
-	// HTTP 1.0 needs to close connection by server
-	// XXX unless explicit keep-alive is set
-	if (parsers[i].http_major == 1 && parsers[i].http_minor == 0)
+	if (parsers[i].flags & F_CONNECTION_CLOSE)
 		close_connection(i);
+	else if (parsers[i].flags & F_CONNECTION_KEEP_ALIVE)
+		;
+	else if (parsers[i].http_major == 1 && parsers[i].http_minor == 0)
+		close_connection(i);    // HTTP 1.0 default
 }
 
 void
