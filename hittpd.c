@@ -285,10 +285,11 @@ send_error(http_parser *p, int status, const char *msg)
 	httpdate(time(0), now);
 
 	int len = snprintf(buf, sizeof buf,
-	    "HTTP/1.%d %d %s\r\n"
+	    "HTTP/%d.%d %d %s\r\n"
 	    "Content-Length: %ld\r\n"
 	    "Date: %s\r\n"
 	    "\r\n",
+	    p->http_major,
 	    p->http_minor,
 	    status, msg,
 	    (data->last = 4 + strlen(msg) + 2),
@@ -445,6 +446,11 @@ on_message_complete(http_parser *p) {
 	struct conn_data *data = p->data;
 
 	data->state = SENDING;
+
+	if (p->http_major == 0 && p->http_minor == 9) {
+		send_error(p, 400, "Bad Request");
+		return 0;
+	}
 
 	char path[PATH_MAX];
 	char name[PATH_MAX + 128];
@@ -730,7 +736,8 @@ finish_response(int i)
 		close_connection(i);
 	else if (parsers[i].flags & F_CONNECTION_KEEP_ALIVE)
 		;
-	else if (parsers[i].http_major == 1 && parsers[i].http_minor == 0)
+	else if ((parsers[i].http_major == 1 && parsers[i].http_minor == 0) ||
+	    parsers[i].http_major == 0)
 		close_connection(i);    // HTTP 1.0 default
 }
 
