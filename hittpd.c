@@ -84,6 +84,7 @@ char default_vhost[] = "_default";
 
 int tilde = 0;
 int vhost = 0;
+int quiet = 0;
 
 static int
 on_url(http_parser *p, const char *s, size_t l)
@@ -195,6 +196,9 @@ peername(http_parser *p)
 void
 accesslog(http_parser *p, int status)
 {
+	if (quiet)
+		return;
+
 	struct conn_data *data = p->data;
 
 	char buf[64];
@@ -430,7 +434,6 @@ mimetype(char *ext)
 static int
 on_message_complete(http_parser *p) {
 	struct conn_data *data = p->data;
-	printf("complete. host: %s path: %s\n", data->host, data->path);
 
 	data->state = SENDING;
 
@@ -826,8 +829,26 @@ read_client(int i)
 }
 
 int
-main()
+main(int argc, char *argv[])
 {
+	int port = 80;
+	char *host = 0;
+
+	int c;
+        while ((c = getopt(argc, argv, "h:p:qHV")) != -1)
+		switch (c) {
+		case 'h': host = optarg; break;
+		case 'p': port = atoi(optarg); break;
+		case 'q': quiet = 1; break;
+		case 'H': tilde = 1; break;
+		case 'V': vhost = 1; break;
+                default:
+                        fprintf(stderr,
+			    "Usage: %s [-h HOST] [-p PORT] "
+			    "[-HVq] [DIRECTORY]\n", argv[0]);
+                        exit(1);
+		}
+
 	int i, maxi, listenfd, sockfd;
 	int nready;
 	int r = 0;
@@ -849,7 +870,7 @@ main()
 	}
 
 	servaddr.sin6_family = AF_INET6;
-	servaddr.sin6_port = htons(8081);
+	servaddr.sin6_port = htons(port);
 	servaddr.sin6_addr = in6addr_any;
 
 	r = bind(listenfd, (struct sockaddr *)&servaddr, sizeof servaddr);
