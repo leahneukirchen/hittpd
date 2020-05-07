@@ -853,13 +853,17 @@ main()
 	servaddr.sin6_addr = in6addr_any;
 
 	r = bind(listenfd, (struct sockaddr *)&servaddr, sizeof servaddr);
-	if (r < 0)
-	    perror("bind");
+	if (r < 0) {
+		perror("bind");
+		exit(111);
+	}
 
 	errno = 0;
 	r = listen(listenfd, 32);
-	if (r < 0)
-	    perror("listen");
+	if (r < 0) {
+		perror("listen");
+		exit(111);
+	}
 
 	client[0].fd = listenfd;
 	client[0].events = POLLRDNORM;
