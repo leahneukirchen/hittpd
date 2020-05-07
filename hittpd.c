@@ -90,6 +90,7 @@ char mimetypes[] =
 char default_mimetype[] = "text/plain";   // "application/octet-stream"
 char default_wwwroot[] = "/var/www";
 char default_vhost[] = "_default";
+char default_port[] = "80";
 
 char *wwwroot = default_wwwroot;
 int tilde = 0;
@@ -850,7 +851,7 @@ read_client(int i)
 int
 main(int argc, char *argv[])
 {
-	char *port = "80";
+	const char *port = default_port;
 	char *host = 0;
 
 	int c;
