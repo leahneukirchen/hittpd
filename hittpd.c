@@ -1,4 +1,4 @@
-/* hittpd - efficient, no-frills HTTP 1.1 daemon */
+/* hittpd - efficient, no-frills HTTP 1.1 server */
 
 /* Copyright 2020 Leah Neukirchen <leah@vuxu.org>
  *
