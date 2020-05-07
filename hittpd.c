@@ -75,7 +75,16 @@ char mimetypes[] =
     ":.html=text/html"
     ":.htm=text/html"
     ":.gif=image/gif"
-    ":.txt=text/plain";
+    ":.jpeg=image/jpeg"
+    ":.jpg=image/jpeg"
+    ":.png=image/png"
+    ":.css=text/css"
+    ":.txt=text/plain"
+    ":.xml=text/xml"
+    ":.xsl=text/xml"
+    ":.pdf=application/pdf"
+    ":.svg=image/svg+xml"
+    ":.ico=image/x-icon";
 
 char default_mimetype[] = "text/plain";   // "application/octet-stream"
 char default_wwwroot[] = "/var/www";
