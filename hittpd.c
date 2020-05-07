@@ -291,7 +291,7 @@ send_error(http_parser *p, int status, const char *msg)
 	    "\r\n",
 	    p->http_minor,
 	    status, msg,
-	    4 + strlen(msg) + 2,
+	    (data->last = 4 + strlen(msg) + 2),
 	    now);
 
 	if (p->method != HTTP_HEAD)
