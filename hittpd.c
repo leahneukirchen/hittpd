@@ -498,6 +498,8 @@ on_message_complete(http_parser *p) {
 		} else if (s[i] == 0) {
 			send_error(p, 400, "Bad Request");
 			return 0;
+		} else if (s[i] == '?') {
+			break;
 		} else {
 			*t++ = s[i];
 		}
