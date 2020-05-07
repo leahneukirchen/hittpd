@@ -79,6 +79,7 @@ char mimetypes[] =
     ":.jpg=image/jpeg"
     ":.png=image/png"
     ":.css=text/css"
+    ":.js=application/javascript"
     ":.txt=text/plain"
     ":.xml=text/xml"
     ":.xsl=text/xml"
