@@ -831,14 +831,14 @@ read_client(int i)
 int
 main(int argc, char *argv[])
 {
-	int port = 80;
+	char *port = "80";
 	char *host = 0;
 
 	int c;
         while ((c = getopt(argc, argv, "h:p:qHV")) != -1)
 		switch (c) {
 		case 'h': host = optarg; break;
-		case 'p': port = atoi(optarg); break;
+		case 'p': port = optarg; break;
 		case 'q': quiet = 1; break;
 		case 'H': tilde = 1; break;
 		case 'V': vhost = 1; break;
@@ -855,9 +855,19 @@ main(int argc, char *argv[])
 
 	signal(SIGPIPE, SIG_IGN);
 
-	struct sockaddr_in6 cliaddr, servaddr = { 0 };
+	struct addrinfo hints = {
+		.ai_family = AF_INET6,
+		.ai_socktype = SOCK_STREAM,
+		.ai_flags = AI_PASSIVE | AI_V4MAPPED,
+	}, *res;
 
-	listenfd = socket(AF_INET6, SOCK_STREAM, 0);
+	r = getaddrinfo(host, port, &hints, &res);
+	if (r) {
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(r));
+		exit(111);
+	}
+
+	listenfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 	if (r < 0) {
 		perror("socket");
 		exit(111);
@@ -869,22 +879,20 @@ main(int argc, char *argv[])
 		exit(111);
 	}
 
-	servaddr.sin6_family = AF_INET6;
-	servaddr.sin6_port = htons(port);
-	servaddr.sin6_addr = in6addr_any;
-
-	r = bind(listenfd, (struct sockaddr *)&servaddr, sizeof servaddr);
+	r = bind(listenfd, res->ai_addr, res->ai_addrlen);
 	if (r < 0) {
 		perror("bind");
 		exit(111);
 	}
 
 	errno = 0;
-	r = listen(listenfd, 32);
+	r = listen(listenfd, SOMAXCONN);
 	if (r < 0) {
 		perror("listen");
 		exit(111);
 	}
+
+	freeaddrinfo(res);
 
 	client[0].fd = listenfd;
 	client[0].events = POLLRDNORM;
@@ -937,6 +945,7 @@ main(int argc, char *argv[])
 			/* new client connection */
 			for (i = 1; i < OPEN_MAX; i++)
 				if (client[i].fd < 0) {
+					struct sockaddr_in6 cliaddr;
 					socklen_t clilen = sizeof cliaddr;
 					int connfd = accept(listenfd,
 					    (struct sockaddr *)&cliaddr, &clilen);
