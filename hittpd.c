@@ -90,61 +90,9 @@ on_url(http_parser *p, const char *s, size_t l)
 {
 	struct conn_data *data = p->data;
 
-	if (l == 0)
+	if (!(data->path = strndup(s, l)))
 		return 1;
 
-	char *path = malloc(l + 1);
-	if (!path)
-		return 1;
-
-	char *t = path;
-
-	// XXX move decoding below, to not show up in access log
-
-	for (size_t i = 0; i < l; i++) {
-		if (s[i] == '%') {
-			char c1 = s[i+1];
-
-			if (c1 >= '0' && c1 <= '9')
-				c1 = c1 - '0';
-			else if (c1 >= 'A' && c1 <= 'F')
-				c1 = c1 - 'A' + 10;
-			else if (c1 >= 'a' && c1 <= 'f')
-				c1 = c1 - 'a' + 10;
-			else {
-				data->state = BAD_REQUEST;
-				return 0;
-			}
-
-			char c2 = s[i+2];
-
-			if (c2 >= '0' && c2 <= '9')
-				c2 = c2 - '0';
-			else if (c2 >= 'A' && c2 <= 'F')
-				c2 = c2 - 'A' + 10;
-			else if (c2 >= 'a' && c2 <= 'f')
-				c2 = c2 - 'a' + 10;
-			else {
-				data->state = BAD_REQUEST;
-				return 0;
-			}
-
-			char d = (c1 << 4) | c2;
-
-			if (d == 0 || d == '/')
-				data->state = BAD_REQUEST;
-
-                        *t++ = d;
-			i += 2;
-		} else if (s[i] == 0) {
-			data->state = BAD_REQUEST;
-		} else {
-			*t++ = s[i];
-		}
-	}
-	*t = 0;
-
-	data->path = path;
 	return 0;
 }
 
@@ -487,38 +435,79 @@ on_message_complete(http_parser *p) {
 	struct conn_data *data = p->data;
 	printf("complete. host: %s path: %s\n", data->host, data->path);
 
-	if (data->state == BAD_REQUEST) {
-		data->state = SENDING;
-		send_error(p, 400, "Bad Request");
-		return 0;
-	}
-
 	data->state = SENDING;
+
+	char path[PATH_MAX];
+	char name[PATH_MAX + 128];
+	char *s = data->path, *t = path;
+
+	for (size_t i = 0; s[i]; i++) {
+		if (s[i] == '%') {
+			char c1 = s[i+1];
+
+			if (c1 >= '0' && c1 <= '9')
+				c1 = c1 - '0';
+			else if (c1 >= 'A' && c1 <= 'F')
+				c1 = c1 - 'A' + 10;
+			else if (c1 >= 'a' && c1 <= 'f')
+				c1 = c1 - 'a' + 10;
+			else {
+				send_error(p, 400, "Bad Request");
+				return 0;
+			}
+
+			char c2 = s[i+2];
+
+			if (c2 >= '0' && c2 <= '9')
+				c2 = c2 - '0';
+			else if (c2 >= 'A' && c2 <= 'F')
+				c2 = c2 - 'A' + 10;
+			else if (c2 >= 'a' && c2 <= 'f')
+				c2 = c2 - 'a' + 10;
+			else {
+				send_error(p, 400, "Bad Request");
+				return 0;
+			}
+
+			char d = (c1 << 4) | c2;
+
+			if (d == 0 || d == '/') {
+				data->state = BAD_REQUEST;
+				return 0;
+			}
+
+                        *t++ = d;
+			i += 2;
+		} else if (s[i] == 0) {
+			data->state = BAD_REQUEST;
+			return 0;
+		} else {
+			*t++ = s[i];
+		}
+	}
+	*t = 0;
 
 	if (!(p->method == HTTP_GET || p->method == HTTP_HEAD)) {
 		send_error(p, 405, "Method Not Allowed");
 		return 0;
 	}
 
-	if (data->path[0] != '/' || strstr(data->path, "/../")) {
+	if (path[0] != '/' || strstr(path, "/../")) {
 		send_error(p, 403, "Forbidden");
 		return 0;
 	}
 
-	char name[PATH_MAX];
-
-	if (tilde && data->path[1] == '~' && data->path[2]) {
-		char *e = strchr(data->path + 1, '/');
+	if (tilde && path[1] == '~' && path[2]) {
+		char *e = strchr(path + 1, '/');
 		if (e)
 			*e = 0;
 
-		struct passwd *pw = getpwnam(data->path + 2);
+		struct passwd *pw = getpwnam(path + 2);
 		if (!pw || pw->pw_uid < 1000) {
 			send_error(p, 404, "Not Found");
 			return 0;
 		}
 
-//		snprintf(name, sizeof name, "%s/tmp/%s",
 		snprintf(name, sizeof name, "%s/public_html/%s",
 		    pw->pw_dir, e ? e + 1 : "");
 
@@ -544,11 +533,9 @@ on_message_complete(http_parser *p) {
 		if (stat(name, &dst) < 0 || !S_ISDIR(dst.st_mode))
 			host = default_vhost;
 
-		snprintf(name, sizeof name, "%s/%s%s",
-		    wwwroot, host, data->path);
+		snprintf(name, sizeof name, "%s/%s%s", wwwroot, host, path);
 	} else {
-		snprintf(name, sizeof name, "%s%s",
-		    wwwroot, data->path);
+		snprintf(name, sizeof name, "%s%s", wwwroot, path);
 	}
 
 	int stream_fd = open(name, O_RDONLY);
@@ -573,7 +560,7 @@ on_message_complete(http_parser *p) {
 
 	if (S_ISDIR(st.st_mode)) {
 		int x;
-		if (data->path[strlen(data->path)-1] == '/' &&
+		if (path[strlen(path)-1] == '/' &&
 		    (x = openat(stream_fd, "index.html", O_RDONLY)) >= 0) {
 			close(stream_fd);
 			stream_fd = x;
@@ -587,7 +574,7 @@ on_message_complete(http_parser *p) {
 		close(stream_fd);
 		data->stream_fd = -1;
 
-		if (data->path[strlen(data->path)-1] != '/') {
+		if (path[strlen(path)-1] != '/') {
 			send_dir_redirect(p);
 			return 0;
 		}
@@ -602,10 +589,10 @@ on_message_complete(http_parser *p) {
 
 		fprintf(stream, "<!doctype html><meta charset=\"utf-8\">"
 		    "<title>Index of ");
-		print_htmlencoded(stream, data->path);
+		print_htmlencoded(stream, path);
 		fprintf(stream, "</title>"
 		    "<h1>Index of ");
-		print_htmlencoded(stream, data->path);
+		print_htmlencoded(stream, path);
 		fprintf(stream, "</h1>\n<ul>\n");
 
 		struct dirent **namelist;
@@ -651,7 +638,7 @@ file:
 
 	data->stream_fd = stream_fd;
 
-	char *ext = strrchr(data->path, '.');
+	char *ext = strrchr(path, '.');
 	if (ext && strchr(ext, '/'))
 		ext = 0;
 
