@@ -78,10 +78,10 @@ char mimetypes[] =
     ":.txt=text/plain";
 
 char default_mimetype[] = "text/plain";   // "application/octet-stream"
-
-char wwwroot[] = "/tmp";
+char default_wwwroot[] = "/var/www";
 char default_vhost[] = "_default";
 
+char *wwwroot = default_wwwroot;
 int tilde = 0;
 int vhost = 0;
 int quiet = 0;
@@ -848,6 +848,9 @@ main(int argc, char *argv[])
 			    "[-HVq] [DIRECTORY]\n", argv[0]);
                         exit(1);
 		}
+
+	if (argc > optind)
+		wwwroot = argv[optind];
 
 	int i, maxi, listenfd, sockfd;
 	int nready;
