@@ -580,6 +580,8 @@ on_message_complete(http_parser *p) {
 			send_error(p, 403, "Forbidden");
 		else if (errno == ENOENT || errno == ENOTDIR)
 			send_error(p, 404, "Not Found");
+		else if (errno == ENAMETOOLONG)
+			send_error(p, 413, "Payload Too Large");
 		else {
 			perror("open");
 			send_error(p, 500, "Internal Server Error");
