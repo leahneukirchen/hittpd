@@ -102,8 +102,13 @@ on_url(http_parser *p, const char *s, size_t l)
 {
 	struct conn_data *data = p->data;
 
-	if (!(data->path = strndup(s, l)))
+	size_t len = data->path ? strlen(data->path) : 0;
+	char *new = realloc(data->path, len + l + 1);
+	if (!new)
 		return 1;
+	data->path = new;
+	memcpy(data->path + len, s, l);
+	data->path[len + l] = 0;
 
 	return 0;
 }
