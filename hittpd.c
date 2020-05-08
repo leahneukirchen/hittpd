@@ -233,10 +233,39 @@ accesslog(http_parser *p, int status)
 }
 
 void
-send_dir_redirect(http_parser *p)
+send_error(http_parser *p, int status, const char *msg)
 {
 	struct conn_data *data = p->data;
 	char buf[512];
+
+	char now[64];
+	httpdate(time(0), now);
+
+	int len = snprintf(buf, sizeof buf,
+	    "HTTP/%d.%d %d %s\r\n"
+	    "Content-Length: %ld\r\n"
+	    "Date: %s\r\n"
+	    "\r\n",
+	    p->http_major,
+	    p->http_minor,
+	    status, msg,
+	    (data->last = 4 + strlen(msg) + 2),
+	    now);
+
+	if (p->method != HTTP_HEAD)
+		len += snprintf(buf + len, sizeof buf - len,
+		    "%03d %s\r\n",
+		    status, msg);
+
+	write(data->fd, buf, len);
+	accesslog(p, status);
+}
+
+void
+send_dir_redirect(http_parser *p)
+{
+	struct conn_data *data = p->data;
+	char buf[2048];
 
 	char now[64];
 	httpdate(time(0), now);
@@ -250,6 +279,11 @@ send_dir_redirect(http_parser *p)
 	    p->http_minor,
 	    now,
 	    data->path);
+
+	if (len >= (int)sizeof buf) {
+		send_error(p, 413, "Payload Too Large");
+		return;
+	}
 
 	// XXX include redirect link?
 
@@ -280,35 +314,6 @@ send_not_modified(http_parser *p, time_t modified)
 
 	write(data->fd, buf, len);
 	accesslog(p, 304);
-}
-
-void
-send_error(http_parser *p, int status, const char *msg)
-{
-	struct conn_data *data = p->data;
-	char buf[512];
-
-	char now[64];
-	httpdate(time(0), now);
-
-	int len = snprintf(buf, sizeof buf,
-	    "HTTP/%d.%d %d %s\r\n"
-	    "Content-Length: %ld\r\n"
-	    "Date: %s\r\n"
-	    "\r\n",
-	    p->http_major,
-	    p->http_minor,
-	    status, msg,
-	    (data->last = 4 + strlen(msg) + 2),
-	    now);
-
-	if (p->method != HTTP_HEAD)
-		len += snprintf(buf + len, sizeof buf - len,
-		    "%03d %s\r\n",
-		    status, msg);
-
-	write(data->fd, buf, len);
-	accesslog(p, status);
 }
 
 void
