@@ -543,7 +543,7 @@ on_message_complete(http_parser *p) {
 				*s = tolower(*s);
 			*s = 0;
 		}
-		if (strstr(host, "..")) {
+		if (!*host || *host == '.' || strstr(host, "..")) {
 			send_error(p, 403, "Forbidden");
 			return 0;
 		}
