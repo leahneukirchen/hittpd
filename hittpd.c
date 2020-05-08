@@ -257,7 +257,7 @@ accesslog(http_parser *p, int status)
 	    p->method == HTTP_HEAD ? 0 : data->last - data->first);
 }
 
-void
+int
 send_error(http_parser *p, int status, const char *msg)
 {
 	struct conn_data *data = p->data;
@@ -284,6 +284,8 @@ send_error(http_parser *p, int status, const char *msg)
 
 	write(data->fd, buf, len);
 	accesslog(p, status);
+
+	return 0;
 }
 
 void
@@ -498,10 +500,8 @@ on_message_complete(http_parser *p) {
 
 	data->state = SENDING;
 
-	if (p->http_major == 0 && p->http_minor == 9) {
-		send_error(p, 400, "Bad Request");
-		return 0;
-	}
+	if (p->http_major == 0 && p->http_minor == 9)
+		return send_error(p, 400, "Bad Request");
 
 	char path[PATH_MAX];
 	char name[PATH_MAX + 128];
@@ -510,51 +510,38 @@ on_message_complete(http_parser *p) {
 	for (size_t i = 0; s[i]; i++) {
 		if (s[i] == '%') {
 			int c1 = unhex(s[i+1]);
-			if (c1 < 0) {
-				send_error(p, 400, "Bad Request");
-				return 0;
-			}
+			if (c1 < 0)
+				return send_error(p, 400, "Bad Request");
 
 			int c2 = unhex(s[i+2]);
-			if (c2 < 0) {
-				send_error(p, 400, "Bad Request");
-				return 0;
-			}
+			if (c2 < 0)
+				return send_error(p, 400, "Bad Request");
 
 			char d = (c1 << 4) | c2;
 
-			if (d == 0 || d == '/') {
-				send_error(p, 400, "Bad Request");
-				return 0;
-			}
+			if (d == 0 || d == '/')
+				return send_error(p, 400, "Bad Request");
 
                         *t++ = d;
 			i += 2;
 		} else if (s[i] == 0) {
-			send_error(p, 400, "Bad Request");
-			return 0;
+			return send_error(p, 400, "Bad Request");
 		} else if (s[i] == '?') {
 			break;
 		} else {
 			*t++ = s[i];
 		}
 
-		if (t >= pe) {
-			send_error(p, 413, "Payload Too Large");
-			return 0;
-		}
+		if (t >= pe)
+			return send_error(p, 413, "Payload Too Large");
 	}
 	*t = 0;
 
-	if (!(p->method == HTTP_GET || p->method == HTTP_HEAD)) {
-		send_error(p, 405, "Method Not Allowed");
-		return 0;
-	}
+	if (!(p->method == HTTP_GET || p->method == HTTP_HEAD))
+		return send_error(p, 405, "Method Not Allowed");
 
-	if (path[0] != '/' || strstr(path, "/../")) {
-		send_error(p, 403, "Forbidden");
-		return 0;
-	}
+	if (path[0] != '/' || strstr(path, "/../"))
+		return send_error(p, 403, "Forbidden");
 
 	if (tilde && path[1] == '~' && path[2]) {
 		char *e = strchr(path + 1, '/');
@@ -562,10 +549,8 @@ on_message_complete(http_parser *p) {
 			*e = 0;
 
 		struct passwd *pw = getpwnam(path + 2);
-		if (!pw || pw->pw_uid < 1000) {
-			send_error(p, 404, "Not Found");
-			return 0;
-		}
+		if (!pw || pw->pw_uid < 1000)
+			return send_error(p, 404, "Not Found");
 
 		snprintf(name, sizeof name, "%s/public_html/%s",
 		    pw->pw_dir, e ? e + 1 : "");
@@ -582,10 +567,8 @@ on_message_complete(http_parser *p) {
 				*s = tolower(*s);
 			*s = 0;
 		}
-		if (!*host || *host == '.' || strstr(host, "..")) {
-			send_error(p, 403, "Forbidden");
-			return 0;
-		}
+		if (!*host || *host == '.' || strstr(host, ".."))
+			return send_error(p, 403, "Forbidden");
 
 		struct stat dst;
 		snprintf(name, sizeof name, "%s/%s", wwwroot, host);
@@ -601,23 +584,20 @@ on_message_complete(http_parser *p) {
 
 	if (stream_fd < 0) {
 		if (errno == EACCES || errno == EPERM)
-			send_error(p, 403, "Forbidden");
+			return send_error(p, 403, "Forbidden");
 		else if (errno == ENOENT || errno == ENOTDIR)
-			send_error(p, 404, "Not Found");
+			return send_error(p, 404, "Not Found");
 		else if (errno == ENAMETOOLONG)
-			send_error(p, 413, "Payload Too Large");
+			return send_error(p, 413, "Payload Too Large");
 		else {
 			perror("open");
-			send_error(p, 500, "Internal Server Error");
+			return send_error(p, 500, "Internal Server Error");
 		}
-		return 0;
 	}
 
 	struct stat st;
-	if (fstat(stream_fd, &st) < 0) {
-		send_error(p, 500, "Internal Server Error");
-		return 0;
-	}
+	if (fstat(stream_fd, &st) < 0)
+		return send_error(p, 500, "Internal Server Error");
 
 	if (S_ISDIR(st.st_mode)) {
 		int x;
@@ -625,10 +605,8 @@ on_message_complete(http_parser *p) {
 		    (x = openat(stream_fd, "index.html", O_RDONLY)) >= 0) {
 			close(stream_fd);
 			stream_fd = x;
-			if (fstat(stream_fd, &st) < 0) {
-				send_error(p, 500, "Internal Server Error");
-				return 0;
-			}
+			if (fstat(stream_fd, &st) < 0)
+				return send_error(p, 500, "Internal Server Error");
 			goto file;
 		}
 
@@ -646,7 +624,6 @@ on_message_complete(http_parser *p) {
 		FILE *stream = open_memstream(&buf, &len);
 		if (!stream)
 			return 1;
-
 
 		fprintf(stream, "<!doctype html><meta charset=\"utf-8\">"
 		    "<title>Index of ");
