@@ -467,7 +467,7 @@ on_message_complete(http_parser *p) {
 
 	char path[PATH_MAX];
 	char name[PATH_MAX + 128];
-	char *s = data->path, *t = path;
+	char *s = data->path, *t = path, *pe = path + sizeof path - 1;
 
 	for (size_t i = 0; s[i]; i++) {
 		if (s[i] == '%') {
@@ -513,6 +513,11 @@ on_message_complete(http_parser *p) {
 			break;
 		} else {
 			*t++ = s[i];
+		}
+
+		if (t >= pe) {
+			send_error(p, 413, "Payload Too Large");
+			return 0;
 		}
 	}
 	*t = 0;
