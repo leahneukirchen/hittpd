@@ -10,6 +10,10 @@ BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/share/man
 
 hittpd: $(OBJ)
+	$(CC) $(LDFLAGS) -o $@ $(OBJ) $(LDLIBS)
+
+.c.o:
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $<
 
 all: $(ALL)
 
