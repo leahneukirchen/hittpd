@@ -38,6 +38,7 @@
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -130,24 +131,48 @@ on_header_field(http_parser *p, const char *s, size_t l)
 	return 0;
 }
 
+int scan_int64(const char **s, int64_t *u) {
+	const char *t = *s;
+	long x;
+	for (x=0; *t && (unsigned)(*t)-'0' < 10 && x <= LLONG_MAX/10 - 1; t++)
+		x = x * 10 + ((*t)-'0');
+	if (t != *s) {
+		*s = t;
+		*u = x;
+		return 1;
+	}
+	return 0;
+}
+
 void
 parse_range(struct conn_data *data, const char *s, size_t l)
 {
-	long n;
+	if (strncmp("bytes=", s, 6) != 0)
+		goto invalid;
 
-	if (sscanf(s, "bytes=%lu-%lu", &(data->first), &(data->last)) == 2) {
-		data->last++;                      // range counts inclusive
-		return;
-	} else if (sscanf(s, "bytes=-%lu", &n) == 1 && n > 0) {
-		data->first = -n;
+	const char *e = s + l;
+	s += 6;
+
+	if (*s == '-') {
+		s++;
+		if (!(scan_int64(&s, &(data->first)) && s == e))
+			goto invalid;
+		data->first = -data->first;
 		data->last = -1;
-		return;
-	} else if (sscanf(s, "bytes=%lu-", &(data->first)) == 1 && s[l-1] == '-') {
-		data->last = -1;
-		return;
 	} else {
-		data->first = data->last = -666;
+		if (!(scan_int64(&s, &(data->first)) && *s == '-'))
+			goto invalid;
+		s++;
+		if (s == e)
+			data->last = -1;
+		else if (!(scan_int64(&s, &(data->last)) && s == e))
+			goto invalid;
 	}
+
+	return;
+
+invalid:
+	data->first = data->last = -666;
 }
 
 static int
