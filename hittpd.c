@@ -23,9 +23,6 @@
 
 #define TIMEOUT 60
 
-#define _XOPEN_SOURCE 700
-#define _DEFAULT_SOURCE
-
 #ifdef __linux__
 #include <sys/sendfile.h>
 #endif
@@ -52,6 +49,11 @@
 #include <unistd.h>
 
 #include "http_parser.h"
+
+#ifdef __GLIBC__
+// POSIX 2008 is hard, let's go shopping.
+char *strptime(const char *restrict, const char *restrict, struct tm *restrict);
+#endif
 
 struct conn_data {
 	enum { NONE, HOST, IMS, RANGE, OTHER, SENDING } state;
