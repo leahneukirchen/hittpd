@@ -904,7 +904,10 @@ main(int argc, char *argv[])
 	struct addrinfo hints = {
 		.ai_family = AF_INET6,
 		.ai_socktype = SOCK_STREAM,
-		.ai_flags = AI_PASSIVE | AI_V4MAPPED,
+		.ai_flags = AI_PASSIVE
+#ifdef AI_V4MAPPED
+		          | AI_V4MAPPED
+#endif
 	}, *res;
 
 	r = getaddrinfo(host, port, &hints, &res);
