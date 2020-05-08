@@ -150,9 +150,9 @@ on_header_value(http_parser *p, const char *s, size_t l)
 {
 	struct conn_data *data = p->data;
 
-	if (data->state == HOST)
+	if (data->state == HOST && !data->host)
 		data->host = strndup(s, l);
-	else if (data->state == IMS)
+	else if (data->state == IMS && !data->ims)
 		data->ims = strndup(s, l);
 	else if (data->state == RANGE)
 		parse_range(data, s, l);
