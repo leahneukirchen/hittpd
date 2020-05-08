@@ -22,6 +22,7 @@
  */
 
 #define TIMEOUT 60
+#define MAX_CLIENTS 1024
 
 #ifdef __linux__
 #include <sys/sendfile.h>
@@ -717,11 +718,9 @@ static http_parser_settings settings = {
 	.on_url = on_url,
 };
 
-#define OPEN_MAX 1024
-
-struct pollfd client[OPEN_MAX];
-struct http_parser parsers[OPEN_MAX];
-struct conn_data datas[OPEN_MAX];
+struct pollfd client[MAX_CLIENTS];
+struct http_parser parsers[MAX_CLIENTS];
+struct conn_data datas[MAX_CLIENTS];
 
 void
 close_connection(int i)
@@ -946,7 +945,7 @@ main(int argc, char *argv[])
 	client[0].fd = listenfd;
 	client[0].events = POLLRDNORM;
 
-	for (i = 1; i < OPEN_MAX; i++)
+	for (i = 1; i < MAX_CLIENTS; i++)
 		client[i].fd = -1;  /* -1 indicates available entry */
 
 	maxi = 0; /* max index into client[] array */
@@ -992,7 +991,7 @@ main(int argc, char *argv[])
 
 		if (client[0].revents & POLLRDNORM) {
 			/* new client connection */
-			for (i = 1; i < OPEN_MAX; i++)
+			for (i = 1; i < MAX_CLIENTS; i++)
 				if (client[i].fd < 0) {
 					struct sockaddr_in6 cliaddr;
 					socklen_t clilen = sizeof cliaddr;
@@ -1001,7 +1000,7 @@ main(int argc, char *argv[])
 					accept_client(i, connfd);
 					break;
 				}
-			if (i == OPEN_MAX)
+			if (i == MAX_CLIENTS)
 				printf("too many clients\n");
 			if (i > maxi)
 				maxi = i; /* max index in client[] array */
