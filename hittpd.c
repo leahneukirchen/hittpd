@@ -479,6 +479,19 @@ mimetype(char *ext)
 	return default_mimetype;
 }
 
+static inline int
+unhex(char c)
+{
+	if (c >= '0' && c <= '9')
+		return c - '0';
+	else if (c >= 'A' && c <= 'F')
+		return c - 'A' + 10;
+	else if (c >= 'a' && c <= 'f')
+		return c - 'a' + 10;
+	else
+		return -1;
+}
+
 static int
 on_message_complete(http_parser *p) {
 	struct conn_data *data = p->data;
@@ -496,28 +509,14 @@ on_message_complete(http_parser *p) {
 
 	for (size_t i = 0; s[i]; i++) {
 		if (s[i] == '%') {
-			char c1 = s[i+1];
-
-			if (c1 >= '0' && c1 <= '9')
-				c1 = c1 - '0';
-			else if (c1 >= 'A' && c1 <= 'F')
-				c1 = c1 - 'A' + 10;
-			else if (c1 >= 'a' && c1 <= 'f')
-				c1 = c1 - 'a' + 10;
-			else {
+			int c1 = unhex(s[i+1]);
+			if (c1 < 0) {
 				send_error(p, 400, "Bad Request");
 				return 0;
 			}
 
-			char c2 = s[i+2];
-
-			if (c2 >= '0' && c2 <= '9')
-				c2 = c2 - '0';
-			else if (c2 >= 'A' && c2 <= 'F')
-				c2 = c2 - 'A' + 10;
-			else if (c2 >= 'a' && c2 <= 'f')
-				c2 = c2 - 'a' + 10;
-			else {
+			int c2 = unhex(s[i+2]);
+			if (c2 < 0) {
 				send_error(p, 400, "Bad Request");
 				return 0;
 			}
