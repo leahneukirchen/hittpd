@@ -26,7 +26,7 @@
 #define _XOPEN_SOURCE 700
 #define _DEFAULT_SOURCE
 
-#ifdef USE_SENDFILE
+#ifdef __linux__
 #include <sys/sendfile.h>
 #endif
 #include <sys/socket.h>
@@ -791,7 +791,7 @@ write_client(int i)
 	ssize_t w = 0;
 
 	if (data->stream_fd >= 0) {
-#ifndef USE_SENDFILE
+#ifndef __linux__
 		char buf[16*4096];
 		size_t n = pread(data->stream_fd, buf, sizeof buf, data->off);
 		if (n < 0)

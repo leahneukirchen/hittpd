@@ -2,7 +2,7 @@ ALL=hittpd
 OBJ=hittpd.o http-parser/http_parser.o
 
 CFLAGS=-g -O2 -Wall -Wno-switch -Wextra -Wwrite-strings
-CPPFLAGS=-DUSE_SENDFILE -Ihttp-parser
+CPPFLAGS=-Ihttp-parser
 
 DESTDIR=
 PREFIX=/usr/local
