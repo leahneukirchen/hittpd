@@ -337,7 +337,8 @@ send_dir_redirect(http_parser *p)
 	char headers[PATH_MAX + 64];
 	snprintf(headers, sizeof headers, "Location: %s/\r\n", data->path);
 
-	send_response(p, 301, "Moved Permanently", headers, "");
+	send_response(p, 301, "Moved Permanently", headers,
+	    "301 Moved Permanently");
 }
 
 void
@@ -353,7 +354,7 @@ send_not_modified(http_parser *p, time_t modified)
 void
 send_rns(http_parser *p, off_t filesize)
 {
-	char headers[PATH_MAX + 64];
+	char headers[64];
 	snprintf(headers, sizeof headers, "Content-Range: bytes */%jd\r\n",
 	    (intmax_t)filesize);
 
