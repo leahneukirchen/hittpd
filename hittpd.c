@@ -30,6 +30,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/un.h>
 
 #include <ctype.h>
 #include <dirent.h>
@@ -875,18 +876,20 @@ main(int argc, char *argv[])
 {
 	const char *port = default_port;
 	char *host = 0;
+	char *uds = 0;
 
 	int c;
-        while ((c = getopt(argc, argv, "h:p:qHV")) != -1)
+        while ((c = getopt(argc, argv, "h:p:qu:HV")) != -1)
 		switch (c) {
 		case 'h': host = optarg; break;
 		case 'p': port = optarg; break;
+		case 'u': uds = optarg; break;
 		case 'q': quiet = 1; break;
 		case 'H': tilde = 1; break;
 		case 'V': vhost = 1; break;
                 default:
                         fprintf(stderr,
-			    "Usage: %s [-h HOST] [-p PORT] "
+			    "Usage: %s [-h HOST] [-p PORT] [-u SOCKET] "
 			    "[-HVq] [DIRECTORY]\n", argv[0]);
                         exit(1);
 		}
@@ -900,49 +903,65 @@ main(int argc, char *argv[])
 
 	signal(SIGPIPE, SIG_IGN);
 
-	struct addrinfo hints = {
-		.ai_socktype = SOCK_STREAM,
+	if (uds) {
+		struct sockaddr_un addr = { 0 };
+		addr.sun_family = AF_UNIX;
+		strncpy(addr.sun_path, uds, sizeof(addr.sun_path)-1);
+		listenfd = socket(AF_UNIX, SOCK_STREAM, 0);
+		if (r < 0) {
+			perror("socket");
+			exit(111);
+		}
+		unlink(uds);
+		bind(listenfd, (struct sockaddr*)&addr, sizeof addr);
+		if (r < 0) {
+			perror("bind");
+			exit(111);
+		}
+	} else {
+		struct addrinfo hints = {
+			.ai_socktype = SOCK_STREAM,
 #ifdef AI_V4MAPPED
-		.ai_family = AF_INET6,
-		.ai_flags = AI_PASSIVE | AI_V4MAPPED
+			.ai_family = AF_INET6,
+			.ai_flags = AI_PASSIVE | AI_V4MAPPED
 #else
-		.ai_family = AF_UNSPEC,
-		.ai_flags = AI_PASSIVE,
+			.ai_family = AF_UNSPEC,
+			.ai_flags = AI_PASSIVE,
 #endif
-	}, *res;
+		}, *res;
 
-	r = getaddrinfo(host, port, &hints, &res);
-	if (r) {
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(r));
-		exit(111);
+		r = getaddrinfo(host, port, &hints, &res);
+		if (r) {
+			fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(r));
+			exit(111);
+		}
+
+		listenfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+		if (r < 0) {
+			perror("socket");
+			exit(111);
+		}
+
+		if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,
+		    &(int){1}, sizeof (int)) < 0) {
+			perror("setsockopt(SO_REUSEADDR)");
+			exit(111);
+		}
+
+		r = bind(listenfd, res->ai_addr, res->ai_addrlen);
+		if (r < 0) {
+			perror("bind");
+			exit(111);
+		}
+
+		freeaddrinfo(res);
 	}
 
-	listenfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-	if (r < 0) {
-		perror("socket");
-		exit(111);
-	}
-
-	if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,
-	    &(int){1}, sizeof (int)) < 0) {
-		perror("setsockopt(SO_REUSEADDR)");
-		exit(111);
-	}
-
-	r = bind(listenfd, res->ai_addr, res->ai_addrlen);
-	if (r < 0) {
-		perror("bind");
-		exit(111);
-	}
-
-	errno = 0;
 	r = listen(listenfd, SOMAXCONN);
 	if (r < 0) {
 		perror("listen");
 		exit(111);
 	}
-
-	freeaddrinfo(res);
 
 	client[0].fd = listenfd;
 	client[0].events = POLLRDNORM;
