@@ -901,11 +901,13 @@ main(int argc, char *argv[])
 	signal(SIGPIPE, SIG_IGN);
 
 	struct addrinfo hints = {
-		.ai_family = AF_INET6,
 		.ai_socktype = SOCK_STREAM,
-		.ai_flags = AI_PASSIVE
 #ifdef AI_V4MAPPED
-		          | AI_V4MAPPED
+		.ai_family = AF_INET6,
+		.ai_flags = AI_PASSIVE | AI_V4MAPPED
+#else
+		.ai_family = AF_UNSPEC,
+		.ai_flags = AI_PASSIVE,
 #endif
 	}, *res;
 
