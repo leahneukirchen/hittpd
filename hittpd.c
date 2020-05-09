@@ -299,10 +299,21 @@ send_response(http_parser *p, int status, const char *msg,
 	    now,
 	    extra_headers);
 
-	if (!(status == 204 || status == 304))
+	if (len >= (int)sizeof buf) {
+		send_error(p, 413, "Payload Too Large");
+		return;
+	}
+
+	if (!(status == 204 || status == 304)) {
 		len += snprintf(buf + len, sizeof buf - len,
 		    "Content-Length: %jd\r\n",
 		    content_length(data));
+
+		if (len >= (int)sizeof buf) {
+			send_error(p, 413, "Payload Too Large");
+			return;
+		}
+	}
 
 	len += snprintf(buf + len, sizeof buf - len,
 	    "\r\n"
