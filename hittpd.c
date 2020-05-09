@@ -908,12 +908,12 @@ main(int argc, char *argv[])
 		addr.sun_family = AF_UNIX;
 		strncpy(addr.sun_path, uds, sizeof(addr.sun_path)-1);
 		listenfd = socket(AF_UNIX, SOCK_STREAM, 0);
-		if (r < 0) {
+		if (listenfd < 0) {
 			perror("socket");
 			exit(111);
 		}
 		unlink(uds);
-		bind(listenfd, (struct sockaddr*)&addr, sizeof addr);
+		r = bind(listenfd, (struct sockaddr*)&addr, sizeof addr);
 		if (r < 0) {
 			perror("bind");
 			exit(111);
@@ -937,7 +937,7 @@ main(int argc, char *argv[])
 		}
 
 		listenfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-		if (r < 0) {
+		if (listenfd < 0) {
 			perror("socket");
 			exit(111);
 		}
