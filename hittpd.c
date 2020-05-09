@@ -279,13 +279,13 @@ send_response(http_parser *p, int status, const char *msg,
 	char now[64];
 	httpdate(time(0), now);
 
-	if (p->method == HTTP_HEAD)
-		content = "";
-
 	if (content) {
 		data->first = 0;
 		data->last = strlen(content);
 	}
+
+	if (p->method == HTTP_HEAD)
+		content = "";
 
 	int len = 0;
 
