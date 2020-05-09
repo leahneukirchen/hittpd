@@ -92,12 +92,11 @@ char mimetypes[] =
     ":.svg=image/svg+xml"
     ":.ico=image/x-icon";
 
-char default_mimetype[] = "text/plain";   // "application/octet-stream"
-char default_wwwroot[] = "/var/www";
+const char *default_mimetype = "application/octet-stream";
 char default_vhost[] = "_default";
 char default_port[] = "80";
 
-char *wwwroot = default_wwwroot;
+const char *wwwroot = "/var/www";
 int tilde = 0;
 int vhost = 0;
 int quiet = 0;
@@ -455,7 +454,7 @@ send_ok(http_parser *p, time_t modified, const char *mimetype, off_t filesize)
 	}
 }
 
-char *
+const char *
 mimetype(char *ext)
 {
 	static char type[16];
@@ -889,7 +888,7 @@ main(int argc, char *argv[])
 	char *uds = 0;
 
 	int c;
-        while ((c = getopt(argc, argv, "h:m:p:qu:IHPV")) != -1)
+        while ((c = getopt(argc, argv, "h:m:p:qu:IHM:PV")) != -1)
 		switch (c) {
 		case 'h': host = optarg; break;
 		case 'm': custom_mimetypes = optarg; break;
@@ -898,12 +897,13 @@ main(int argc, char *argv[])
 		case 'q': quiet = 1; break;
 		case 'I': show_index = 0; break;
 		case 'H': tilde = 1; break;
+		case 'M': default_mimetype = optarg; break;
 		case 'P': only_public = 1; break;
 		case 'V': vhost = 1; break;
                 default:
                         fprintf(stderr,
 			    "Usage: %s [-h HOST] [-p PORT] [-u SOCKET] "
-			    "[-m :.ext=mime/type:...] "
+			    "[-m :.ext=mime/type:...] [-M DEFAULT_MIMETYPE] "
 			    "[-IHPVq] [DIRECTORY]\n", argv[0]);
                         exit(1);
 		}
