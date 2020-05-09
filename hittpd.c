@@ -103,6 +103,7 @@ int vhost = 0;
 int quiet = 0;
 int show_index = 1;
 int only_public = 0;
+const char *custom_mimetypes = "";
 
 static int
 on_url(http_parser *p, const char *s, size_t l)
@@ -462,7 +463,9 @@ mimetype(char *ext)
 	if (!ext)
 		return default_mimetype;
 
-	char *x = strstr(mimetypes, ext);
+	char *x = strstr(custom_mimetypes, ext);
+	if (!x)
+		x = strstr(mimetypes, ext);
 
 	if (x && x[-1] == ':' && x[strlen(ext)] == '=') {
 		char *t = type;
@@ -886,9 +889,10 @@ main(int argc, char *argv[])
 	char *uds = 0;
 
 	int c;
-        while ((c = getopt(argc, argv, "h:p:qu:IHPV")) != -1)
+        while ((c = getopt(argc, argv, "h:m:p:qu:IHPV")) != -1)
 		switch (c) {
 		case 'h': host = optarg; break;
+		case 'm': custom_mimetypes = optarg; break;
 		case 'p': port = optarg; break;
 		case 'u': uds = optarg; break;
 		case 'q': quiet = 1; break;
@@ -899,6 +903,7 @@ main(int argc, char *argv[])
                 default:
                         fprintf(stderr,
 			    "Usage: %s [-h HOST] [-p PORT] [-u SOCKET] "
+			    "[-m :.ext=mime/type:...] "
 			    "[-IHPVq] [DIRECTORY]\n", argv[0]);
                         exit(1);
 		}
