@@ -238,6 +238,12 @@ peername(http_parser *p)
 	return addrbuf;
 }
 
+static inline intmax_t
+content_length(struct conn_data *data)
+{
+	return data->last - data->first;
+}
+
 void
 accesslog(http_parser *p, int status)
 {
@@ -252,13 +258,13 @@ accesslog(http_parser *p, int status)
 
 //	REMOTEHOST - - [DD/MON/YYYY:HH:MM:SS -TZ] "METHOD PATH" STATUS BYTES
 // ?    REFERER USER_AGENT
-	printf("%s - - %s \"%s %s\" %d %ld\n",
+	printf("%s - - %s \"%s %s\" %d %jd\n",
 	    peername(p),
 	    buf,
 	    http_method_str(p->method),
 	    data->path,
 	    status,
-	    p->method == HTTP_HEAD ? 0 : data->last - data->first);
+	    p->method == HTTP_HEAD ? 0 : content_length(data));
 }
 
 int
@@ -270,15 +276,18 @@ send_error(http_parser *p, int status, const char *msg)
 	char now[64];
 	httpdate(time(0), now);
 
+	data->first = 0;
+	data->last = 4 + strlen(msg) + 2;
+
 	int len = snprintf(buf, sizeof buf,
 	    "HTTP/%d.%d %d %s\r\n"
-	    "Content-Length: %ld\r\n"
+	    "Content-Length: %jd\r\n"
 	    "Date: %s\r\n"
 	    "\r\n",
 	    p->http_major,
 	    p->http_minor,
 	    status, msg,
-	    (data->last = 4 + strlen(msg) + 2),
+	    content_length(data),
 	    now);
 
 	if (p->method != HTTP_HEAD)
@@ -360,11 +369,11 @@ send_rns(http_parser *p, off_t filesize)
 	    "HTTP/1.%d 416 Requested Range Not Satisfiable\r\n"
 	    "Content-Length: 0\r\n"
 	    "Date: %s\r\n"
-	    "Content-Range: bytes */%ld\r\n"
+	    "Content-Range: bytes */%jd\r\n"
 	    "\r\n",
 	    p->http_minor,
 	    now,
-	    filesize);
+	    (intmax_t)filesize);
 
 	data->first = data->last = 0;
 
@@ -431,13 +440,13 @@ send_ok(http_parser *p, time_t modified, const char *mimetype, off_t filesize)
 		len = snprintf(buf, sizeof buf,
 		    "HTTP/1.%d 200 OK\r\n"
 		    "Content-Type: %s\r\n"
-		    "Content-Length: %ld\r\n"
+		    "Content-Length: %jd\r\n"
 		    "Last-Modified: %s\r\n"
 		    "Date: %s\r\n"
 		    "\r\n",
 		    p->http_minor,
 		    mimetype,
-		    data->last - data->first,
+		    content_length(data),
 		    lastmod,
 		    now);
 
@@ -447,17 +456,18 @@ send_ok(http_parser *p, time_t modified, const char *mimetype, off_t filesize)
 		len = snprintf(buf, sizeof buf,
 		    "HTTP/1.%d 206 Partial content\r\n"
 		    "Content-Type: %s\r\n"
-		    "Content-Length: %ld\r\n"
+		    "Content-Length: %jd\r\n"
 		    "Last-Modified: %s\r\n"
 		    "Date: %s\r\n"
-		    "Content-Range: bytes %ld-%ld/%ld\r\n"
+		    "Content-Range: bytes %jd-%jd/%jd\r\n"
 		    "\r\n",
 		    p->http_minor,
 		    mimetype,
-		    data->last - data->first,
+		    content_length(data),
 		    lastmod,
 		    now,
-		    data->first, data->last - 1, filesize);
+		    (intmax_t)data->first, (intmax_t)data->last - 1,
+		    (intmax_t)filesize);
 
 		write(data->fd, buf, len);
 		accesslog(p, 206);
