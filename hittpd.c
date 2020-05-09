@@ -267,44 +267,64 @@ accesslog(http_parser *p, int status)
 	    p->method == HTTP_HEAD ? 0 : content_length(data));
 }
 
-int
-send_error(http_parser *p, int status, const char *msg)
+int send_error(http_parser *p, int status, const char *msg);
+
+void
+send_response(http_parser *p, int status, const char *msg,
+    const char *extra_headers, const char *content)
 {
 	struct conn_data *data = p->data;
-	char buf[512];
+	char buf[2048];
 
 	char now[64];
 	httpdate(time(0), now);
 
-	char content[512];
 	if (p->method == HTTP_HEAD)
-		*content = 0;
-	else
-		snprintf(content, sizeof content, "%03d %s\r\n", status, msg);
+		content = "";
 
-	data->first = 0;
-	data->last = strlen(content);
+	if (content) {
+		data->first = 0;
+		data->last = strlen(content);
+	}
 
-	int len = snprintf(buf, sizeof buf,
+	int len = 0;
+
+	len += snprintf(buf, sizeof buf,
 	    "HTTP/%d.%d %d %s\r\n"
-	    "Content-Length: %jd\r\n"
 	    "Date: %s\r\n"
-	    "\r\n"
 	    "%s",
 	    p->http_major,
 	    p->http_minor,
 	    status, msg,
-	    content_length(data),
 	    now,
-	    content);
+	    extra_headers);
+
+	if (!(status == 204 || status == 304))
+		len += snprintf(buf + len, sizeof buf - len,
+		    "Content-Length: %jd\r\n",
+		    content_length(data));
+
+	len += snprintf(buf + len, sizeof buf - len,
+	    "\r\n"
+	    "%s",
+	    content ? content : "");
 
 	if (len >= (int)sizeof buf) {
 		send_error(p, 413, "Payload Too Large");
-		return 0;
+		return;
 	}
 
 	write(data->fd, buf, len);
 	accesslog(p, status);
+}
+
+int
+send_error(http_parser *p, int status, const char *msg)
+{
+	char content[512];
+	snprintf(content, sizeof content, "%03d %s\r\n", status, msg);
+
+	send_response(p, status, msg, "", content);
 
 	return 0;
 }
@@ -313,80 +333,31 @@ void
 send_dir_redirect(http_parser *p)
 {
 	struct conn_data *data = p->data;
-	char buf[2048];
 
-	char now[64];
-	httpdate(time(0), now);
+	char headers[PATH_MAX + 64];
+	snprintf(headers, sizeof headers, "Location: %s/\r\n", data->path);
 
-	int len = snprintf(buf, sizeof buf,
-	    "HTTP/1.%d 301 Moved Permanently\r\n"
-	    "Content-Length: 0\r\n"
-	    "Date: %s\r\n"
-	    "Location: %s/\r\n"
-	    "\r\n",
-	    p->http_minor,
-	    now,
-	    data->path);
-
-	if (len >= (int)sizeof buf) {
-		send_error(p, 413, "Payload Too Large");
-		return;
-	}
-
-	// XXX include redirect link?
-
-	data->last = data->first = 0;
-
-	write(data->fd, buf, len);
-	accesslog(p, 301);
+	send_response(p, 301, "Moved Permanently", headers, "");
 }
 
 void
 send_not_modified(http_parser *p, time_t modified)
 {
-	struct conn_data *data = p->data;
-	char buf[512];
-
-	char now[64], lastmod[64];
-	httpdate(time(0), now);
+	char lastmod[64], headers[128];
 	httpdate(modified, lastmod);
+	snprintf(headers, sizeof headers, "Last-Modified: %s\r\n", lastmod);
 
-	int len = snprintf(buf, sizeof buf,
-	    "HTTP/1.%d 304 Not Modified\r\n"
-	    "Date: %s\r\n"
-	    "Last-Modified: %s\r\n"
-	    "\r\n",
-	    p->http_minor,
-	    now,
-	    lastmod);
-
-	write(data->fd, buf, len);
-	accesslog(p, 304);
+	send_response(p, 304, "Not Modified", headers, "");
 }
 
 void
 send_rns(http_parser *p, off_t filesize)
 {
-	struct conn_data *data = p->data;
-	char buf[512];
-
-	char now[64];
-	httpdate(time(0), now);
-
-	int len = snprintf(buf, sizeof buf,
-	    "HTTP/1.%d 416 Requested Range Not Satisfiable\r\n"
-	    "Content-Length: 0\r\n"
-	    "Date: %s\r\n"
-	    "Content-Range: bytes */%jd\r\n"
-	    "\r\n",
-	    p->http_minor,
-	    now,
+	char headers[PATH_MAX + 64];
+	snprintf(headers, sizeof headers, "Content-Range: bytes */%jd\r\n",
 	    (intmax_t)filesize);
 
-	data->first = data->last = 0;
-
-	write(data->fd, buf, len);
-	accesslog(p, 416);
+	send_response(p, 416, "Requested Range Not Satisfiable", headers, "");
 }
 
 void
@@ -436,49 +407,29 @@ void
 send_ok(http_parser *p, time_t modified, const char *mimetype, off_t filesize)
 {
 	struct conn_data *data = p->data;
-	char buf[512];
 
-	char now[64], lastmod[64];
-	httpdate(time(0), now);
+	char headers[512];
+	char lastmod[64];
 	httpdate(modified, lastmod);
 
-	int len;
-
 	if (data->first == 0 && data->last == filesize) {
-		len = snprintf(buf, sizeof buf,
-		    "HTTP/1.%d 200 OK\r\n"
+		snprintf(headers, sizeof headers,
 		    "Content-Type: %s\r\n"
-		    "Content-Length: %jd\r\n"
-		    "Last-Modified: %s\r\n"
-		    "Date: %s\r\n"
-		    "\r\n",
-		    p->http_minor,
+		    "Last-Modified: %s\r\n",
 		    mimetype,
-		    content_length(data),
-		    lastmod,
-		    now);
-
-		write(data->fd, buf, len);
-		accesslog(p, 200);
+		    lastmod);
+		send_response(p, 200, "OK", headers, 0);
 	} else {
-		len = snprintf(buf, sizeof buf,
-		    "HTTP/1.%d 206 Partial content\r\n"
+		snprintf(headers, sizeof headers,
 		    "Content-Type: %s\r\n"
-		    "Content-Length: %jd\r\n"
-		    "Last-Modified: %s\r\n"
-		    "Date: %s\r\n"
 		    "Content-Range: bytes %jd-%jd/%jd\r\n"
-		    "\r\n",
-		    p->http_minor,
+		    "Last-Modified: %s\r\n",
 		    mimetype,
-		    content_length(data),
-		    lastmod,
-		    now,
-		    (intmax_t)data->first, (intmax_t)data->last - 1,
-		    (intmax_t)filesize);
-
-		write(data->fd, buf, len);
-		accesslog(p, 206);
+		    (intmax_t)data->first,
+		    (intmax_t)data->last - 1,
+		    (intmax_t)filesize,
+		    lastmod);
+		send_response(p, 216, "Partial Content", headers, 0);
 	}
 }
 
