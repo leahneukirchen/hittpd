@@ -795,15 +795,19 @@ write_client(int i)
 	if (data->stream_fd >= 0) {
 #ifndef __linux__
 		char buf[16*4096];
-		size_t n = pread(data->stream_fd, buf, sizeof buf, data->off);
-		if (n < 0)
-			; // XXX
-		else if (n == 0) {
+		ssize_t n = pread(data->stream_fd, buf, sizeof buf, data->off);
+		if (n < 0) {
+			if (errno == EAGAIN)
+				return;
+			close_connection(i);
+		} else if (n == 0) {
 			finish_response(i);
 		} else if (n > 0) {
 			w = write(sockfd, buf, n);
 			if (w > 0)
 				data->off += w;
+			if (w == 0 || data->off == data->last)
+				finish_response(i);
 		}
 #else
 		w = sendfile(sockfd, data->stream_fd,
@@ -825,9 +829,9 @@ write_client(int i)
 	}
 
 	if (w < 0) {
-		if (errno == EPIPE)
-			close_connection(i);
-		// XXX other error handling
+		if (errno == EAGAIN)
+			return;
+		close_connection(i);  // in particular, EPIPE and ECONNRESET
 	}
 }
 
