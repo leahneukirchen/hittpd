@@ -869,6 +869,15 @@ read_client(int i)
 	}
 }
 
+sig_atomic_t stop;
+
+void
+do_stop(int sig)
+{
+	(void)sig;
+	stop = 1;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -897,11 +906,18 @@ main(int argc, char *argv[])
 	if (argc > optind)
 		wwwroot = argv[optind];
 
+	struct sigaction pipe_act = { .sa_handler = SIG_IGN };
+	sigemptyset(&pipe_act.sa_mask);
+	sigaction(SIGPIPE, &pipe_act, 0);
+
+	struct sigaction act = { .sa_handler = do_stop };
+	sigemptyset(&act.sa_mask);
+	sigaction(SIGINT, &act, 0);
+	sigaction(SIGTERM, &act, 0);
+
 	int i, maxi, listenfd, sockfd;
 	int nready;
 	int r = 0;
-
-	signal(SIGPIPE, SIG_IGN);
 
 	if (uds) {
 		struct sockaddr_un addr = { 0 };
@@ -971,8 +987,17 @@ main(int argc, char *argv[])
 
 	maxi = 0; /* max index into client[] array */
 
-	while (1) {
+	while (!stop) {
 		nready = poll(client, maxi + 1, maxi ? TIMEOUT*1000 : -1);
+
+		if (nready < 0) {
+			if (errno == EINTR) {
+				continue;   // and stop maybe
+			} else {
+				perror("poll");
+				exit(111);
+			}
+		}
 
 		time_t now = time(0);
 
