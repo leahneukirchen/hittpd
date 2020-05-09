@@ -102,6 +102,7 @@ int tilde = 0;
 int vhost = 0;
 int quiet = 0;
 int show_index = 1;
+int only_public = 0;
 
 static int
 on_url(http_parser *p, const char *s, size_t l)
@@ -592,6 +593,9 @@ on_message_complete(http_parser *p) {
 	if (fstat(stream_fd, &st) < 0)
 		return send_error(p, 500, "Internal Server Error");
 
+	if (only_public && !(st.st_mode & S_IROTH))
+		return send_error(p, 403, "Forbidden");
+
 	if (S_ISDIR(st.st_mode)) {
 		int x;
 		if (path[strlen(path)-1] == '/' &&
@@ -600,6 +604,8 @@ on_message_complete(http_parser *p) {
 			stream_fd = x;
 			if (fstat(stream_fd, &st) < 0)
 				return send_error(p, 500, "Internal Server Error");
+			if (only_public && !(st.st_mode & S_IROTH))
+				return send_error(p, 403, "Forbidden");
 			goto file;
 		}
 
@@ -871,7 +877,7 @@ main(int argc, char *argv[])
 	char *uds = 0;
 
 	int c;
-        while ((c = getopt(argc, argv, "h:p:qu:IHV")) != -1)
+        while ((c = getopt(argc, argv, "h:p:qu:IHPV")) != -1)
 		switch (c) {
 		case 'h': host = optarg; break;
 		case 'p': port = optarg; break;
@@ -879,11 +885,12 @@ main(int argc, char *argv[])
 		case 'q': quiet = 1; break;
 		case 'I': show_index = 0; break;
 		case 'H': tilde = 1; break;
+		case 'P': only_public = 1; break;
 		case 'V': vhost = 1; break;
                 default:
                         fprintf(stderr,
 			    "Usage: %s [-h HOST] [-p PORT] [-u SOCKET] "
-			    "[-IHVq] [DIRECTORY]\n", argv[0]);
+			    "[-IHPVq] [DIRECTORY]\n", argv[0]);
                         exit(1);
 		}
 
