@@ -276,24 +276,32 @@ send_error(http_parser *p, int status, const char *msg)
 	char now[64];
 	httpdate(time(0), now);
 
+	char content[512];
+	if (p->method == HTTP_HEAD)
+		*content = 0;
+	else
+		snprintf(content, sizeof content, "%03d %s\r\n", status, msg);
+
 	data->first = 0;
-	data->last = 4 + strlen(msg) + 2;
+	data->last = strlen(content);
 
 	int len = snprintf(buf, sizeof buf,
 	    "HTTP/%d.%d %d %s\r\n"
 	    "Content-Length: %jd\r\n"
 	    "Date: %s\r\n"
-	    "\r\n",
+	    "\r\n"
+	    "%s",
 	    p->http_major,
 	    p->http_minor,
 	    status, msg,
 	    content_length(data),
-	    now);
+	    now,
+	    content);
 
-	if (p->method != HTTP_HEAD)
-		len += snprintf(buf + len, sizeof buf - len,
-		    "%03d %s\r\n",
-		    status, msg);
+	if (len >= (int)sizeof buf) {
+		send_error(p, 413, "Payload Too Large");
+		return 0;
+	}
 
 	write(data->fd, buf, len);
 	accesslog(p, status);
