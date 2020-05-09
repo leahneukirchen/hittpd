@@ -356,7 +356,7 @@ send_dir_redirect(http_parser *p)
 	snprintf(headers, sizeof headers, "Location: %s/\r\n", data->path);
 
 	send_response(p, 301, "Moved Permanently", headers,
-	    "301 Moved Permanently");
+	    "301 Moved Permanently\r\n");
 }
 
 void
