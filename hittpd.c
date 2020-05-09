@@ -101,6 +101,7 @@ char *wwwroot = default_wwwroot;
 int tilde = 0;
 int vhost = 0;
 int quiet = 0;
+int show_index = 1;
 
 static int
 on_url(http_parser *p, const char *s, size_t l)
@@ -610,6 +611,9 @@ on_message_complete(http_parser *p) {
 			return 0;
 		}
 
+		if (!show_index)
+			return send_error(p, 403, "Forbidden");
+
 		char *buf;
 		size_t len;
 
@@ -867,18 +871,19 @@ main(int argc, char *argv[])
 	char *uds = 0;
 
 	int c;
-        while ((c = getopt(argc, argv, "h:p:qu:HV")) != -1)
+        while ((c = getopt(argc, argv, "h:p:qu:IHV")) != -1)
 		switch (c) {
 		case 'h': host = optarg; break;
 		case 'p': port = optarg; break;
 		case 'u': uds = optarg; break;
 		case 'q': quiet = 1; break;
+		case 'I': show_index = 0; break;
 		case 'H': tilde = 1; break;
 		case 'V': vhost = 1; break;
                 default:
                         fprintf(stderr,
 			    "Usage: %s [-h HOST] [-p PORT] [-u SOCKET] "
-			    "[-HVq] [DIRECTORY]\n", argv[0]);
+			    "[-IHVq] [DIRECTORY]\n", argv[0]);
                         exit(1);
 		}
 
