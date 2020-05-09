@@ -258,11 +258,18 @@ accesslog(http_parser *p, int status)
 
 //	REMOTEHOST - - [DD/MON/YYYY:HH:MM:SS -TZ] "METHOD PATH" STATUS BYTES
 // ?    REFERER USER_AGENT
-	printf("%s - - %s \"%s %s\" %d %jd\n",
+	printf("%s - - %s \"%s ",
 	    peername(p),
 	    buf,
-	    http_method_str(p->method),
-	    data->path,
+	    http_method_str(p->method));
+
+	for (char *s = data->path; *s; s++)
+		if (*s < 32 || *s >= 127 || *s == '"')
+			printf("%%%02x", *s);
+		else
+			putchar(*s);
+
+	printf("\" %d %jd\n",
 	    status,
 	    p->method == HTTP_HEAD ? 0 : content_length(data));
 }
