@@ -102,6 +102,7 @@ int vhost = 0;
 int quiet = 0;
 int show_index = 1;
 int only_public = 0;
+int reuse_port = 0;
 const char *custom_mimetypes = "";
 
 static int
@@ -891,7 +892,7 @@ main(int argc, char *argv[])
 	char *uds = 0;
 
 	int c;
-        while ((c = getopt(argc, argv, "h:m:p:qu:IHM:PV")) != -1)
+        while ((c = getopt(argc, argv, "h:m:p:qu:IHM:PRV")) != -1)
 		switch (c) {
 		case 'h': host = optarg; break;
 		case 'm': custom_mimetypes = optarg; break;
@@ -902,12 +903,13 @@ main(int argc, char *argv[])
 		case 'H': tilde = 1; break;
 		case 'M': default_mimetype = optarg; break;
 		case 'P': only_public = 1; break;
+		case 'R': reuse_port = 1; break;
 		case 'V': vhost = 1; break;
                 default:
                         fprintf(stderr,
 			    "Usage: %s [-h HOST] [-p PORT] [-u SOCKET] "
 			    "[-m :.ext=mime/type:...] [-M DEFAULT_MIMETYPE] "
-			    "[-IHPVq] [DIRECTORY]\n", argv[0]);
+			    "[-IHPRVq] [DIRECTORY]\n", argv[0]);
                         exit(1);
 		}
 
@@ -971,6 +973,15 @@ main(int argc, char *argv[])
 			perror("setsockopt(SO_REUSEADDR)");
 			exit(111);
 		}
+
+#ifdef SO_REUSEPORT
+		if (reuse_port &&
+		    setsockopt(listenfd, SOL_SOCKET, SO_REUSEPORT,
+		    &(int){1}, sizeof (int)) < 0) {
+			perror("setsockopt(SO_REUSEPORT)");
+			exit(111);
+		}
+#endif
 
 		r = bind(listenfd, res->ai_addr, res->ai_addrlen);
 		if (r < 0) {
