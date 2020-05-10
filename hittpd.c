@@ -1048,11 +1048,9 @@ main(int argc, char *argv[])
 			/* new client connection */
 			for (i = 1; i < MAX_CLIENTS; i++)
 				if (client[i].fd < 0) {
-					struct sockaddr_in6 cliaddr;
-					socklen_t clilen = sizeof cliaddr;
-					int connfd = accept(listenfd,
-					    (struct sockaddr *)&cliaddr, &clilen);
-					accept_client(i, connfd);
+					int connfd = accept(listenfd, 0, 0);
+					if (connfd >= 0)
+						accept_client(i, connfd);
 					break;
 				}
 			if (i == MAX_CLIENTS)
