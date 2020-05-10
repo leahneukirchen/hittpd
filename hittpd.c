@@ -246,6 +246,9 @@ content_length(struct conn_data *data)
 	return data->last - data->first;
 }
 
+time_t now;
+char timestamp[64];
+
 void
 accesslog(http_parser *p, int status)
 {
@@ -255,8 +258,7 @@ accesslog(http_parser *p, int status)
 	struct conn_data *data = p->data;
 
 	char buf[64];
-	time_t t = time(0);
-	strftime(buf, 64, "[%d/%b/%Y:%H:%M:%S %z]", localtime(&t));
+	strftime(buf, 64, "[%d/%b/%Y:%H:%M:%S %z]", localtime(&now));
 
 //	REMOTEHOST - - [DD/MON/YYYY:HH:MM:SS -TZ] "METHOD PATH" STATUS BYTES
 // ?    REFERER USER_AGENT
@@ -285,9 +287,6 @@ send_response(http_parser *p, int status, const char *msg,
 	struct conn_data *data = p->data;
 	char buf[2048];
 
-	char now[64];
-	httpdate(time(0), now);
-
 	if (content) {
 		data->first = 0;
 		data->last = strlen(content);
@@ -305,7 +304,7 @@ send_response(http_parser *p, int status, const char *msg,
 	    p->http_major,
 	    p->http_minor,
 	    status, msg,
-	    now,
+	    timestamp,
 	    extra_headers);
 
 	if (len >= (int)sizeof buf) {
@@ -664,7 +663,7 @@ on_message_complete(http_parser *p) {
 		data->buf = buf;
 		data->first = 0;
 		data->last = len;
-		send_ok(p, time(0), "text/html", len);
+		send_ok(p, now, "text/html", len);
 
 		return 0;
 	}
@@ -778,7 +777,7 @@ accept_client(int i, int fd)
 	datas[i].fd = fd;
 	datas[i].stream_fd = -1;
 	datas[i].last = -1;
-	datas[i].deadline = time(0) + TIMEOUT;
+	datas[i].deadline = now + TIMEOUT;
 
 	parsers[i].data = &datas[i];
 
@@ -1008,7 +1007,8 @@ main(int argc, char *argv[])
 			}
 		}
 
-		time_t now = time(0);
+		now = time(0);
+		httpdate(now, timestamp);
 
 		if (nready == 0) {
 			// clear timeouted
