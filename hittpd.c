@@ -221,15 +221,13 @@ parse_http_date(char *s)
 
 
 const char *
-peername(http_parser *p)
+peername(int fd)
 {
-	struct conn_data *data = p->data;
-
         struct sockaddr_storage ss;
         socklen_t slen = sizeof ss;
 	static char addrbuf[NI_MAXHOST];
 
-        if (getpeername(data->fd, (struct sockaddr *)(void *)&ss, &slen) < 0)
+        if (getpeername(fd, (struct sockaddr *)(void *)&ss, &slen) < 0)
 		return "0.0.0.0";
 	if (getnameinfo((struct sockaddr *)(void *)&ss, slen,
 	    addrbuf, sizeof addrbuf, 0, 0, NI_NUMERICHOST) < 0)
@@ -264,7 +262,7 @@ accesslog(http_parser *p, int status)
 //	REMOTEHOST - - [DD/MON/YYYY:HH:MM:SS -TZ] "METHOD PATH" STATUS BYTES
 // ?    REFERER USER_AGENT
 	printf("%s - - %s \"%s ",
-	    peername(p),
+	    peername(data->fd),
 	    buf,
 	    http_method_str(p->method));
 
@@ -996,6 +994,24 @@ main(int argc, char *argv[])
 	if (r < 0) {
 		perror("listen");
 		exit(111);
+	}
+
+	if (!quiet) {
+		char addrbuf[NI_MAXHOST] = "(unknown)";
+		char *addr = addrbuf;
+		char portbuf[PATH_MAX] = "(unknown)";
+		struct sockaddr_storage ss;
+		socklen_t slen = sizeof ss;
+		if (getsockname(listenfd,
+		    (struct sockaddr *)(void *)&ss, &slen) == 0 &&
+		    getnameinfo((struct sockaddr *)(void *)&ss, slen,
+		    addrbuf, sizeof addrbuf, portbuf, sizeof portbuf,
+		    NI_NUMERICHOST | NI_NUMERICSERV) == 0)
+			addr = addrbuf;
+		if (strncmp("::ffff:", addr, 7) == 0)
+			addr += 7;
+
+		printf("hittpd listening on %s:%s\n", addr, portbuf);
 	}
 
 	client[0].fd = listenfd;
