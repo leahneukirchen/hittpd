@@ -804,14 +804,18 @@ write_client(int i)
 			w = write(sockfd, buf, n);
 			if (w > 0)
 				data->off += w;
-			if (w == 0 || data->off == data->last)
+			if (data->off == data->last)
 				finish_response(i);
+			else if (w == 0)
+				close_connection(i);  // file was truncated!
 		}
 #else
 		w = sendfile(sockfd, data->stream_fd,
 		    &(data->off), data->last - data->off);
-		if (w == 0 || data->off == data->last)
+		if (data->off == data->last)
 			finish_response(i);
+		else if (w == 0)
+			close_connection(i);  // file was truncated!
 #endif
 	} else if (data->buf) {
 		if (data->off == data->last) {
