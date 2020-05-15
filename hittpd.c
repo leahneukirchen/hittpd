@@ -133,7 +133,7 @@ on_header_field(http_parser *p, const char *s, size_t l)
 	else if (l == 5 && strncasecmp(s, "range", l) == 0)
 		data->state = RANGE;
 	else
-		data->state = OTHER;	// ignore others
+		data->state = OTHER;    // ignore others
 
 	return 0;
 }
@@ -141,7 +141,7 @@ on_header_field(http_parser *p, const char *s, size_t l)
 int scan_int64(const char **s, int64_t *u) {
 	const char *t = *s;
 	long x;
-	for (x=0; *t && (unsigned)(*t)-'0' < 10 && x <= LLONG_MAX/10 - 1; t++)
+	for (x = 0; *t && (unsigned)(*t)-'0' < 10 && x <= LLONG_MAX/10 - 1; t++)
 		x = x * 10 + ((*t)-'0');
 	if (t != *s) {
 		*s = t;
@@ -208,26 +208,26 @@ httpdate(time_t t, char *buf)
 static time_t
 parse_http_date(char *s)
 {
-        struct tm tm;
+	struct tm tm;
 
 	if (strlen(s) != 29)
 		return 0;
 
-        if (!strptime(s, "%a, %d %b %Y %T GMT", &tm))
+	if (!strptime(s, "%a, %d %b %Y %T GMT", &tm))
 		return 0;
 
-        return timegm(&tm);
+	return timegm(&tm);
 }
 
 
 const char *
 peername(int fd)
 {
-        struct sockaddr_storage ss;
-        socklen_t slen = sizeof ss;
+	struct sockaddr_storage ss;
+	socklen_t slen = sizeof ss;
 	static char addrbuf[NI_MAXHOST];
 
-        if (getpeername(fd, (struct sockaddr *)(void *)&ss, &slen) < 0)
+	if (getpeername(fd, (struct sockaddr *)(void *)&ss, &slen) < 0)
 		return "0.0.0.0";
 	if (getnameinfo((struct sockaddr *)(void *)&ss, slen,
 	    addrbuf, sizeof addrbuf, 0, 0, NI_NUMERICHOST) < 0)
@@ -383,7 +383,7 @@ void
 print_urlencoded(FILE *stream, char *s)
 {
 	while (*s)
-		switch(*s) {
+		switch (*s) {
 		case ';':
 		case '/':
 		case '?':
@@ -410,7 +410,7 @@ void
 print_htmlencoded(FILE *stream, char *s)
 {
 	while (*s)
-		switch(*s) {
+		switch (*s) {
 		case '&':
 		case '"':
 		case '<':
@@ -516,7 +516,7 @@ on_message_complete(http_parser *p) {
 			if (d == 0 || d == '/')
 				return send_error(p, 400, "Bad Request");
 
-                        *t++ = d;
+			*t++ = d;
 			i += 2;
 		} else if (s[i] == 0) {
 			return send_error(p, 400, "Bad Request");
@@ -894,7 +894,7 @@ main(int argc, char *argv[])
 	char *uds = 0;
 
 	int c;
-        while ((c = getopt(argc, argv, "h:m:p:qu:IHM:PRV")) != -1)
+	while ((c = getopt(argc, argv, "h:m:p:qu:IHM:PRV")) != -1)
 		switch (c) {
 		case 'h': host = optarg; break;
 		case 'm': custom_mimetypes = optarg; break;
@@ -907,12 +907,12 @@ main(int argc, char *argv[])
 		case 'P': only_public = 1; break;
 		case 'R': reuse_port = 1; break;
 		case 'V': vhost = 1; break;
-                default:
-                        fprintf(stderr,
+		default:
+			fprintf(stderr,
 			    "Usage: %s [-h HOST] [-p PORT] [-u SOCKET] "
 			    "[-m :.ext=mime/type:...] [-M DEFAULT_MIMETYPE] "
 			    "[-IHPRVq] [DIRECTORY]\n", argv[0]);
-                        exit(1);
+			exit(1);
 		}
 
 	if (argc > optind)
@@ -934,14 +934,14 @@ main(int argc, char *argv[])
 	if (uds) {
 		struct sockaddr_un addr = { 0 };
 		addr.sun_family = AF_UNIX;
-		strncpy(addr.sun_path, uds, sizeof(addr.sun_path)-1);
+		strncpy(addr.sun_path, uds, sizeof addr.sun_path - 1);
 		listenfd = socket(AF_UNIX, SOCK_STREAM, 0);
 		if (listenfd < 0) {
 			perror("socket");
 			exit(111);
 		}
 		unlink(uds);
-		r = bind(listenfd, (struct sockaddr*)&addr, sizeof addr);
+		r = bind(listenfd, (struct sockaddr *)&addr, sizeof addr);
 		if (r < 0) {
 			perror("bind");
 			exit(111);
@@ -971,7 +971,7 @@ main(int argc, char *argv[])
 		}
 
 		if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR,
-		    &(int){1}, sizeof (int)) < 0) {
+		    &(int){ 1 }, sizeof (int)) < 0) {
 			perror("setsockopt(SO_REUSEADDR)");
 			exit(111);
 		}
@@ -979,7 +979,7 @@ main(int argc, char *argv[])
 #ifdef SO_REUSEPORT
 		if (reuse_port &&
 		    setsockopt(listenfd, SOL_SOCKET, SO_REUSEPORT,
-		    &(int){1}, sizeof (int)) < 0) {
+		    &(int){ 1 }, sizeof (int)) < 0) {
 			perror("setsockopt(SO_REUSEPORT)");
 			exit(111);
 		}
