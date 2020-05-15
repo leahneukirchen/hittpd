@@ -23,6 +23,11 @@ Anti features:
 - No config files
 - No CGI support
 - No SSL, use behind hitch or the like
+- No setuid, if you want to bind to a low port, use (on Linux)
+
+	capsh --keep=1 --user=www-data \
+	      --inh=cap_net_bind_service --addamb=cap_net_bind_service -- \
+	      -c '/usr/local/bin/hittpd /srv/http'
 
 Other nifty small webservers to look at:
 
