@@ -227,9 +227,9 @@ peername(int fd)
 	socklen_t slen = sizeof ss;
 	static char addrbuf[NI_MAXHOST];
 
-	if (getpeername(fd, (struct sockaddr *)(void *)&ss, &slen) < 0)
+	if (getpeername(fd, (struct sockaddr *)&ss, &slen) < 0)
 		return "0.0.0.0";
-	if (getnameinfo((struct sockaddr *)(void *)&ss, slen,
+	if (getnameinfo((struct sockaddr *)&ss, slen,
 	    addrbuf, sizeof addrbuf, 0, 0, NI_NUMERICHOST) < 0)
 		return "0.0.0.0";
 
@@ -1006,9 +1006,8 @@ main(int argc, char *argv[])
 		char portbuf[PATH_MAX] = "(unknown)";
 		struct sockaddr_storage ss;
 		socklen_t slen = sizeof ss;
-		if (getsockname(listenfd,
-		    (struct sockaddr *)(void *)&ss, &slen) == 0 &&
-		    getnameinfo((struct sockaddr *)(void *)&ss, slen,
+		if (getsockname(listenfd, (struct sockaddr *)&ss, &slen) == 0 &&
+		    getnameinfo((struct sockaddr *)&ss, slen,
 		    addrbuf, sizeof addrbuf, portbuf, sizeof portbuf,
 		    NI_NUMERICHOST | NI_NUMERICSERV) == 0)
 			addr = addrbuf;
