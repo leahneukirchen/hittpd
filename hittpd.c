@@ -609,16 +609,20 @@ on_message_complete(http_parser *p) {
 			goto file;
 		}
 
-		close(stream_fd);
-		data->stream_fd = -1;
-
 		if (path[strlen(path)-1] != '/') {
+			close(stream_fd);
+			data->stream_fd = -1;
+
 			send_dir_redirect(p);
 			return 0;
 		}
 
-		if (!show_index)
+		if (!show_index) {
+			close(stream_fd);
+			data->stream_fd = -1;
+
 			return send_error(p, 403, "Forbidden");
+		}
 
 		char *buf;
 		size_t len;
@@ -633,31 +637,52 @@ on_message_complete(http_parser *p) {
 		fprintf(stream, "</title>"
 		    "<h1>Index of ");
 		print_htmlencoded(stream, path);
-		fprintf(stream, "</h1>\n<ul>\n");
+		fprintf(stream, "</h1>\n<hr>\n<pre>\n");
 
 		struct dirent **namelist;
 		int n = scandir(name, &namelist, 0, alphasort);
 
 		for (int i = 0; i < n; i++) {
-			if (namelist[i]->d_name[0] == '.' &&
-			    namelist[i]->d_name[1] == 0)
+			char *file = namelist[i]->d_name;
+			if (file[0] == '.' && file[1] == 0)
 				continue;
 
-			fprintf(stream, "<li><a href=\"");
-			print_urlencoded(stream, namelist[i]->d_name);
+			struct stat ist;
+			if (fstatat(stream_fd, file, &ist, AT_SYMLINK_NOFOLLOW) < 0)
+				continue;
+
+			fprintf(stream, "<a href=\"");
+			print_urlencoded(stream, file);
 			fprintf(stream, "%s\">",
-			    namelist[i]->d_type == DT_DIR ? "/" : "");
-			print_htmlencoded(stream, namelist[i]->d_name);
-			fprintf(stream, "%s</a></li>\n",
-			    namelist[i]->d_type == DT_DIR ? "/" : "");
+			    S_ISDIR(ist.st_mode) ? "/" : "");
+			print_htmlencoded(stream, file);
+			fprintf(stream, "%s</a>",
+			    S_ISDIR(ist.st_mode) ? "/" : "");
+
+			int len = strlen(file) + !!S_ISDIR(ist.st_mode);
+			fprintf(stream, "%-*.*s ", 48 - len, 48 - len, "");
+
+			char timestamp[64];
+			strftime(timestamp, sizeof timestamp,
+			    "%Y-%m-%d %H:%M", localtime(&ist.st_mtime));
+
+			if (S_ISDIR(ist.st_mode))
+				fprintf(stream, " %s %12s\n", timestamp, "-");
+			else
+				fprintf(stream, " %s %12jd\n", timestamp,
+				    (intmax_t)ist.st_size);
+
 		}
 
 		while (n--)
 			free(namelist[n]);
 		free(namelist);
 
-		fprintf(stream, "</ul>\n");
+		fprintf(stream, "</pre>\n<hr>\n");
 		fclose(stream);
+
+		close(stream_fd);
+		data->stream_fd = -1;
 
 		data->buf = buf;
 		data->first = 0;
