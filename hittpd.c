@@ -651,6 +651,9 @@ on_message_complete(http_parser *p) {
 			if (fstatat(stream_fd, file, &ist, AT_SYMLINK_NOFOLLOW) < 0)
 				continue;
 
+			if (only_public && !(ist.st_mode & S_IROTH))
+				continue;
+
 			fprintf(stream, "<a href=\"");
 			print_urlencoded(stream, file);
 			fprintf(stream, "%s\">",
