@@ -448,7 +448,7 @@ send_ok(http_parser *p, time_t modified, const char *mimetype, off_t filesize)
 		    (intmax_t)data->last - 1,
 		    (intmax_t)filesize,
 		    lastmod);
-		send_response(p, 216, "Partial Content", headers, 0);
+		send_response(p, 206, "Partial Content", headers, 0);
 	}
 }
 
