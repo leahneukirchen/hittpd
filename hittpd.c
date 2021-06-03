@@ -1,6 +1,6 @@
 /* hittpd - efficient, no-frills HTTP 1.1 server */
 
-/* Copyright 2020 Leah Neukirchen <leah@vuxu.org>
+/* Copyright 2020, 2021 Leah Neukirchen <leah@vuxu.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
