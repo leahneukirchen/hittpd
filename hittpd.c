@@ -781,6 +781,11 @@ finish_response(int i)
 	datas[i].ims = 0;
 	datas[i].host = 0;
 
+	datas[i].off = 0;
+	datas[i].first = 0;
+	datas[i].last = -1;
+	datas[i].state = NONE;
+
 	client[i].events = POLLRDNORM;
 
 	if (parsers[i].flags & F_CONNECTION_CLOSE)
