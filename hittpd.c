@@ -767,6 +767,7 @@ close_connection(int i)
 	free(datas[i].host);
 
 	datas[i] = (struct conn_data){ 0 };
+	datas[i].stream_fd = -1;
 }
 
 void
@@ -1144,7 +1145,7 @@ main(int argc, char *argv[])
 				if (--nready <= 0)
 					break; /* no more readable descriptors */
 			}
-			else if (client[i].revents & (POLLRDNORM | POLLERR)) {
+			else if (client[i].revents & (POLLRDNORM | POLLHUP | POLLERR)) {
 				read_client(i);
 				datas[i].deadline = now + TIMEOUT;
 
