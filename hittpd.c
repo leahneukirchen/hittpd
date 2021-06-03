@@ -731,6 +731,11 @@ file:
 	if (data->last > st.st_size)
 		data->last = st.st_size;
 
+	if (data->first == data->last) {
+		send_rns(p, st.st_size);
+		return 0;
+	}
+
 	send_ok(p, st.st_mtime, mimetype(ext), st.st_size);
 
 	// XXX send short file directly?
