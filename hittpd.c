@@ -104,6 +104,7 @@ int show_index = 1;
 int only_public = 0;
 int reuse_port = 0;
 const char *custom_mimetypes = "";
+int inetd = 0;
 
 static int
 on_url(http_parser *p, const char *s, size_t l)
@@ -332,7 +333,7 @@ send_response(http_parser *p, int status, const char *msg,
 		return;
 	}
 
-	write(data->fd, buf, len);
+	write(inetd ? 1 : data->fd, buf, len);
 	accesslog(p, status);
 }
 
@@ -826,7 +827,7 @@ void
 write_client(int i)
 {
 	struct conn_data *data = &datas[i];
-	int sockfd = client[i].fd;
+	int sockfd = inetd ? 1 : client[i].fd;
 	ssize_t w = 0;
 
 	if (data->stream_fd >= 0) {
@@ -880,7 +881,7 @@ void
 read_client(int i)
 {
 	struct conn_data *data = &datas[i];
-	int sockfd = client[i].fd;
+	int sockfd = inetd ? 0 : client[i].fd;
 	ssize_t n;
 	char buf[1024];
 
@@ -933,9 +934,10 @@ main(int argc, char *argv[])
 	char *uds = 0;
 
 	int c;
-	while ((c = getopt(argc, argv, "h:m:p:qu:IHM:PRV")) != -1)
+	while ((c = getopt(argc, argv, "h:im:p:qu:IHM:PRV")) != -1)
 		switch (c) {
 		case 'h': host = optarg; break;
+		case 'i': inetd = 1; quiet = 1; break;
 		case 'm': custom_mimetypes = optarg; break;
 		case 'p': port = optarg; break;
 		case 'u': uds = optarg; break;
@@ -950,7 +952,7 @@ main(int argc, char *argv[])
 			fprintf(stderr,
 			    "Usage: %s [-h HOST] [-p PORT] [-u SOCKET] "
 			    "[-m :.ext=mime/type:...] [-M DEFAULT_MIMETYPE] "
-			    "[-IHPRVq] [DIRECTORY]\n", argv[0]);
+			    "[-iIHPRVq] [DIRECTORY]\n", argv[0]);
 			exit(1);
 		}
 
@@ -969,6 +971,46 @@ main(int argc, char *argv[])
 	int i, maxi, listenfd, sockfd;
 	int nready;
 	int r = 0;
+
+	if (inetd) {
+		accept_client(1, 0);
+		accept_client(2, 1);
+
+		client[1].fd = 0;
+		client[1].events = POLLRDNORM;
+
+		while (!stop) {
+			client[2].fd = (datas[1].state == SENDING) ? 1 : -1;
+			client[2].events = POLLWRNORM;
+
+			if (client[1].fd < 0)
+				break;
+
+			nready = poll(client + 1, 2, TIMEOUT*1000);
+
+			if (nready < 0) {
+				if (errno == EINTR) {
+					continue;   // and stop maybe
+				} else {
+					perror("poll");
+					exit(111);
+				}
+			}
+
+			if (nready == 0 || (client[1].revents & POLLNVAL))
+				break;
+
+			now = time(0);
+			httpdate(now, timestamp);
+
+			if (client[1].revents & (POLLRDNORM | POLLHUP | POLLERR))
+				read_client(1);
+			if (client[2].revents & POLLWRNORM)
+				write_client(1);
+		}
+
+		return 0;
+	}
 
 	if (uds) {
 		struct sockaddr_un addr = { 0 };

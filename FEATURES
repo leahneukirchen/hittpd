@@ -13,6 +13,7 @@ Features of hittpd:
 - ~user directories
 - NCSA compatible log format
 - Connection timeouts
+- inetd(8)/s6-tcpserver mode with -i
 - Portable code
 - MIT licensed
 - less than 3kloc total
