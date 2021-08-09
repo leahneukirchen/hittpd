@@ -1,7 +1,7 @@
 ALL=hittpd
 OBJ=hittpd.o http-parser/http_parser.o
 
-CFLAGS=-g -O2 -Wall -Wno-switch -Wextra -Wwrite-strings
+CFLAGS=-g -O2 -Wall -Wno-switch -Wextra -Wwrite-strings -Werror=incompatible-pointer-types
 CPPFLAGS=-Ihttp-parser
 
 DESTDIR=
