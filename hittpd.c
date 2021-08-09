@@ -141,8 +141,8 @@ on_header_field(http_parser *p, const char *s, size_t l)
 
 int scan_int64(const char **s, int64_t *u) {
 	const char *t = *s;
-	long x;
-	for (x = 0; *t && (unsigned)(*t)-'0' < 10 && x <= LLONG_MAX/10 - 1; t++)
+	int64_t x;
+	for (x = 0; *t && (unsigned)(*t)-'0' < 10 && x <= INT64_MAX/10 - 1; t++)
 		x = x * 10 + ((*t)-'0');
 	if (t != *s) {
 		*s = t;
