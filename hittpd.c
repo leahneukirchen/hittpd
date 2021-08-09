@@ -93,6 +93,7 @@ char mimetypes[] =
     ":.ico=image/x-icon";
 
 const char *default_mimetype = "application/octet-stream";
+const char index_html[] = "index.html";
 char default_vhost[] = "_default";
 char default_port[] = "80";
 
@@ -599,7 +600,11 @@ on_message_complete(http_parser *p) {
 	if (S_ISDIR(st.st_mode)) {
 		int x;
 		if (path[strlen(path)-1] == '/' &&
-		    (x = openat(stream_fd, "index.html", O_RDONLY)) >= 0) {
+		    (x = openat(stream_fd, index_html, O_RDONLY)) >= 0) {
+			if (strlen(path) > PATH_MAX - sizeof index_html) {
+				return send_error(p, 413, "Payload Too Large");
+			}
+			strcat(path, index_html);
 			close(stream_fd);
 			stream_fd = x;
 			if (fstat(stream_fd, &st) < 0)
