@@ -467,7 +467,8 @@ getmime(const char *mime, char *ext)
 	const char *c = mime;
 
 	do {
-		c++;
+		if (*c == ':')
+			c++;
 		if (strncmp(c, ext, extlen) == 0 && c[extlen] == '=')
 			return c + extlen + 1;
 	} while ((c = strchr(c, ':')));
