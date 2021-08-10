@@ -257,14 +257,15 @@ accesslog(http_parser *p, int status)
 
 	struct conn_data *data = p->data;
 
-	char buf[64];
-	strftime(buf, 64, "[%d/%b/%Y:%H:%M:%S %z]", localtime(&now));
+	char logtimestamp[64];
+	strftime(logtimestamp, sizeof logtimestamp,
+	    "[%d/%b/%Y:%H:%M:%S %z]", localtime(&now));
 
 //	REMOTEHOST - - [DD/MON/YYYY:HH:MM:SS -TZ] "METHOD PATH" STATUS BYTES
 // ?    REFERER USER_AGENT
 	printf("%s - - %s \"%s ",
 	    peername(data->fd),
-	    buf,
+	    logtimestamp,
 	    http_method_str(p->method));
 
 	for (char *s = data->path; *s; s++)
