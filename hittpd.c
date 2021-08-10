@@ -106,6 +106,15 @@ int only_public = 0;
 int reuse_port = 0;
 const char *custom_mimetypes = "";
 
+time_t now;
+char timestamp[64];
+
+struct pollfd client[MAX_CLIENTS];
+struct http_parser parsers[MAX_CLIENTS];
+struct conn_data datas[MAX_CLIENTS];
+
+sig_atomic_t stop;
+
 static int
 on_url(http_parser *p, const char *s, size_t l)
 {
@@ -245,9 +254,6 @@ content_length(struct conn_data *data)
 {
 	return data->last - data->first;
 }
-
-time_t now;
-char timestamp[64];
 
 void
 accesslog(http_parser *p, int status)
@@ -770,10 +776,6 @@ static http_parser_settings settings = {
 	.on_url = on_url,
 };
 
-struct pollfd client[MAX_CLIENTS];
-struct http_parser parsers[MAX_CLIENTS];
-struct conn_data datas[MAX_CLIENTS];
-
 void
 close_connection(int i)
 {
@@ -935,8 +937,6 @@ read_client(int i)
 
 	}
 }
-
-sig_atomic_t stop;
 
 void
 do_stop(int sig)
