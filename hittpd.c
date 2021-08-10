@@ -453,27 +453,41 @@ send_ok(http_parser *p, time_t modified, const char *mimetype, off_t filesize)
 	}
 }
 
+static const char *
+getmime(const char *mime, char *ext)
+{
+	size_t extlen = strlen(ext);
+	const char *c = mime;
+
+	do {
+		c++;
+		if (strncmp(c, ext, extlen) == 0 && c[extlen] == '=')
+			return c + extlen + 1;
+	} while ((c = strchr(c, ':')));
+
+	return 0;
+}
+
 const char *
 mimetype(char *ext)
 {
-	static char type[16];
+	static char type[256];  // RFC 6838
 
 	if (!ext)
 		return default_mimetype;
 
-	char *x = strstr(custom_mimetypes, ext);
+	const char *x = getmime(custom_mimetypes, ext);
 	if (!x)
-		x = strstr(mimetypes, ext);
+		x = getmime(mimetypes, ext);
+	if (!x)
+		return default_mimetype;
 
-	if (x && x[-1] == ':' && x[strlen(ext)] == '=') {
-		char *t = type;
-		for (char *c = x + strlen(ext) + 1; *c && *c != ':'; )
-			*t++ = *c++;
-		*t = 0;
-		return type;
-	}
-
-	return default_mimetype;
+	char *t = type;
+	char *e = type + sizeof type - 1;
+	for (const char *c = x; t < e && *c && *c != ':'; )
+		*t++ = *c++;
+	*t = 0;
+	return type;
 }
 
 static inline int
