@@ -685,14 +685,14 @@ on_message_complete(http_parser *p) {
 			int len = strlen(file) + !!S_ISDIR(ist.st_mode);
 			fprintf(stream, "%-*.*s ", 48 - len, 48 - len, "");
 
-			char timestamp[64];
-			strftime(timestamp, sizeof timestamp,
+			char filetimestamp[64];
+			strftime(filetimestamp, sizeof filetimestamp,
 			    "%Y-%m-%d %H:%M", localtime(&ist.st_mtime));
 
 			if (S_ISDIR(ist.st_mode))
-				fprintf(stream, " %s %12s\n", timestamp, "-");
+				fprintf(stream, " %s %12s\n", filetimestamp, "-");
 			else
-				fprintf(stream, " %s %12jd\n", timestamp,
+				fprintf(stream, " %s %12jd\n", filetimestamp,
 				    (intmax_t)ist.st_size);
 
 		}
