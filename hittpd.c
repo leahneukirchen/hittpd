@@ -1,6 +1,6 @@
 /* hittpd - efficient, no-frills HTTP 1.1 server */
 
-/* Copyright 2020, 2021 Leah Neukirchen <leah@vuxu.org>
+/* Copyright 2020, 2021, 2022 Leah Neukirchen <leah@vuxu.org>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to
@@ -516,6 +516,7 @@ on_message_complete(http_parser *p) {
 	struct conn_data *data = p->data;
 
 	data->state = SENDING;
+	http_parser_pause(p, 1);  // can't do more than one request at a time
 
 	if (p->http_major == 0 && p->http_minor == 9)
 		return send_error(p, 400, "Bad Request");
@@ -919,7 +920,21 @@ read_client(int i)
 	} else if (n == 0) {
 		close_connection(i);
 	} else {
-		http_parser_execute(&parsers[i], &settings, buf, n);
+		size_t r = http_parser_execute(&parsers[i], &settings, buf, n);
+
+		if ((size_t)n == r &&
+		    HTTP_PARSER_ERRNO(&parsers[i]) == HPE_PAUSED) {
+			// we handled a complete request, we can reuse
+			// the parser
+			http_parser_pause(&parsers[i], 0);
+		} else {
+			// the read data was longer than a single request
+			// drop the rest and make sure we close the connection,
+			// so the client tries without pipelining
+			// (this is conformant)
+			http_parser_pause(&parsers[i], 0);
+			parsers[i].flags |= F_CONNECTION_CLOSE;
+		}
 
 		if (parsers[i].http_errno) {
 			printf("err=%s\n",

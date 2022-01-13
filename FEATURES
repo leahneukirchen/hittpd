@@ -6,7 +6,7 @@ Features of hittpd:
 - HTTP 1.0 and HTTP 1.1 support
 - Ranges (basic variants only)
 - If-Modified-Since
-- Keep-Alive
+- Keep-Alive (but no pipelining)
 - IPv6
 - sendfile(2) on Linux
 - Virtual Hosts
