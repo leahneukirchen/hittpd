@@ -854,7 +854,21 @@ write_client(int i)
 	ssize_t w = 0;
 
 	if (data->stream_fd >= 0) {
-#ifndef __linux__
+#ifdef __linux__
+		w = sendfile(sockfd, data->stream_fd,
+		    &(data->off), data->last - data->off);
+		if (data->off == data->last) {
+			finish_response(i);
+			return;
+		} else if (w == 0) {
+			close_connection(i);  // file was truncated!
+			return;
+		} else if (w > 0) {
+			return;
+		}
+
+		/* use default code when sendfile failed with w < 0 */
+#endif
 		char buf[16*4096];
 		ssize_t n = pread(data->stream_fd, buf, sizeof buf, data->off);
 		if (n < 0) {
@@ -872,14 +886,6 @@ write_client(int i)
 			else if (w == 0)
 				close_connection(i);  // file was truncated!
 		}
-#else
-		w = sendfile(sockfd, data->stream_fd,
-		    &(data->off), data->last - data->off);
-		if (data->off == data->last)
-			finish_response(i);
-		else if (w == 0)
-			close_connection(i);  // file was truncated!
-#endif
 	} else if (data->buf) {
 		if (data->off == data->last) {
 			finish_response(i);
