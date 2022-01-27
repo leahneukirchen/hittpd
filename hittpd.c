@@ -113,7 +113,7 @@ struct pollfd client[MAX_CLIENTS];
 struct http_parser parsers[MAX_CLIENTS];
 struct conn_data datas[MAX_CLIENTS];
 
-sig_atomic_t stop;
+volatile sig_atomic_t stop;
 
 static int
 on_url(http_parser *p, const char *s, size_t l)
