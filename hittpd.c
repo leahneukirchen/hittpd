@@ -1164,8 +1164,13 @@ main(int argc, char *argv[])
 						accept_client(i, connfd);
 					break;
 				}
-			if (i == MAX_CLIENTS)
+			if (i == MAX_CLIENTS) {
 				printf("too many clients\n");
+				int connfd = accept(listenfd, 0, 0);
+				if (connfd >= 0)
+					close(connfd);
+				continue;
+			}
 			if (i > maxi)
 				maxi = i; /* max index in client[] array */
 			if (--nready <= 0)
