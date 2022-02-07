@@ -263,6 +263,9 @@ accesslog(http_parser *p, int status)
 
 	struct conn_data *data = p->data;
 
+	if (!data->path)
+		return;
+
 	char logtimestamp[64];
 	strftime(logtimestamp, sizeof logtimestamp,
 	    "[%d/%b/%Y:%H:%M:%S %z]", localtime(&now));
@@ -349,6 +352,11 @@ send_error(http_parser *p, int status, const char *msg)
 {
 	char content[512];
 	snprintf(content, sizeof content, "%03d %s\r\n", status, msg);
+
+	if (p->http_major == 0) {
+		p->http_major = 1;
+		p->http_minor = 0;
+	}
 
 	send_response(p, status, msg, "", content);
 
@@ -933,6 +941,9 @@ read_client(int i)
 			// we handled a complete request, we can reuse
 			// the parser
 			http_parser_pause(&parsers[i], 0);
+		} else if (HTTP_PARSER_ERRNO(&parsers[i]) > 0) {
+			send_error(&parsers[i], 400, "Bad Request");
+			close_connection(i);
 		} else {
 			// the read data was longer than a single request
 			// drop the rest and make sure we close the connection,
